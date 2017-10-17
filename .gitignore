@@ -1,0 +1,5 @@
+.idea/
+venv35/
+*.pyc
+__pycache__
+test1.py
