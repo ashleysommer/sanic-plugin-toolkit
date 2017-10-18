@@ -63,6 +63,7 @@ Usage
 A simple plugin written using the Sanic Plugins Framework will look like this:
 
 .. code:: python
+
     # Source: my_plugin.py
     from spf import SanicPlugin
     from sanic.response import text
@@ -121,6 +122,7 @@ A simple plugin written using the Sanic Plugins Framework will look like this:
 The Application developer can use your plugin in their code like this:
 
 .. code:: python
+
     # Source: app.py
     from sanic import Sanic
     from spf import SanicPluginFramework
