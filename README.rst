@@ -1,7 +1,7 @@
 Sanic Plugins Framework
 =======================
 
-|License|
+|Build Status| |Latest Version| |Supported Python versions| |License|
 
 Welcome to the Sanic Plugins Framework README file.
 
@@ -25,10 +25,10 @@ The Middleware system in the Sanic Plugins Framework both builds upon and extend
 Rather than simply having two middleware queues ('request', and 'response'), the middleware system in SPF uses four
 queues.
 
-- Request-Pre: These middleware run _before_ the application's own request middleware.
-- Request-Post: These middleware run _after_ the application's own request middleware.
-- Response-Pre: These middleware run _before_ the application's own response middleware.
-- Response-Post: These middleware run _after_ the application's own response middleware.
+- Request-Pre: These middleware run *before* the application's own request middleware.
+- Request-Post: These middleware run *after* the application's own request middleware.
+- Response-Pre: These middleware run *before* the application's own response middleware.
+- Response-Post: These middleware run *after* the application's own response middleware.
 
 So as a plugin developer you can choose whether you need your middleware to be executed before or after the
 application's own middleware.
@@ -144,6 +144,17 @@ Questions, comments or improvements? Please create an issue on
 Credits
 -------
 
+Ashley Sommer `ashleysommer@gmail.com <ashleysommer@gmail.com>`__
+
+
+.. |Build Status| image:: https://api.travis-ci.org/ashleysommer/sanicpluginsframework.svg?branch=master
+   :target: https://travis-ci.org/ashleysommer/sanicpluginsframework
+
+.. |Latest Version| image:: https://img.shields.io/pypi/v/Sanic-Plugins-Framework.svg
+   :target: https://pypi.python.org/pypi/Sanic-Plugins-Framework/
+
+.. |Supported Python versions| image:: https://img.shields.io/pypi/pyversions/Sanic-Plugins-Framework.svg
+   :target: https://img.shields.io/pypi/pyversions/Sanic-Plugins-Framework.svg
 
 .. |License| image:: http://img.shields.io/:license-mit-blue.svg
    :target: https://pypi.python.org/pypi/Sanic-Plugins-Framework/
