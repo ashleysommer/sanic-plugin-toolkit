@@ -36,7 +36,7 @@ with open_local(['requirements.txt']) as f:
     install_requires = f.read().split("\n")
 
 setup(
-    name='Sanic Plugins Framework',
+    name='Sanic-Plugins-Framework',
     version=version,
     url='https://github.com/ashleysommer/sanicpluginsframework',
     license='MIT',
