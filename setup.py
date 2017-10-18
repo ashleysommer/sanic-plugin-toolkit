@@ -1,40 +1,54 @@
-# -*- coding: utf-8 -*-
 """
-    setup
-    ~~~~
-    TODO: About
+Sanic Plugins Framework
+~~~~~~~~~~~~~~~~~~~~~~~
+TODO: About
 
-    :copyright: (c) 2017 by Ashley Sommer.
-    :license: MIT, see LICENSE for more details.
+:copyright: (c) 2017 by Ashley Sommer.
+:license: MIT, see LICENSE for more details.
 """
-
+import codecs
+import os
+import re
 from setuptools import setup
-from os.path import join, dirname
 
-with open(join(dirname(__file__), 'spf/version.py'), 'r') as f:
-    exec(f.read())
 
-with open(join(dirname(__file__), 'requirements.txt'), 'r') as f:
+def open_local(paths, mode='r', encoding='utf8'):
+    path = os.path.join(
+        os.path.abspath(os.path.dirname(__file__)),
+        *paths
+    )
+
+    return codecs.open(path, mode, encoding)
+
+
+with open_local(['spf', '__init__.py'], encoding='latin1') as fp:
+    try:
+        version = re.findall(r"^__version__ = '([^']+)'\r?$",
+                             fp.read(), re.M)[0]
+    except IndexError:
+        raise RuntimeError('Unable to determine version.')
+
+with open_local(['README.rst']) as rm:
+    long_description = rm.read()
+
+
+with open_local(['requirements.txt']) as f:
     install_requires = f.read().split("\n")
 
 setup(
-    name='Sanic-Cors',
-    version=__version__,
+    name='Sanic Plugins Framework',
+    version=version,
     url='https://github.com/ashleysommer/sanicpluginsframework',
     license='MIT',
     author='Ashley Sommer',
     author_email='ashleysommer@gmail.com',
     description="TODO: desc",
-    long_description=open('README.rst').read(),
-    packages=['sanic_cors'],
+    long_description=long_description,
+    packages=['spf'],
     zip_safe=False,
     include_package_data=True,
     platforms='any',
     install_requires=install_requires,
-    tests_require=[
-        'nose'
-    ],
-    test_suite='nose.collector',
     classifiers=[
         'Environment :: Web Environment',
         'Intended Audience :: Developers',
@@ -42,6 +56,8 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',

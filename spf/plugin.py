@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from collections import namedtuple, defaultdict
 from functools import partial
 from inspect import isawaitable
@@ -5,69 +6,40 @@ from queue import PriorityQueue
 import logging
 from sanic import Sanic
 from uuid import uuid1
+from spf.context import ContextDict
 
 FutureMiddleware = namedtuple('Middleware', ['middleware', 'args', 'kwargs'])
 FutureRoute = namedtuple('Route', ['handler', 'uri', 'args', 'kwargs'])
 FutureException = namedtuple('Exception', ['handler', 'args', 'kwargs'])
 
-class ContextDict(dict):
-    __slots__ = ('_spf', '_parent_context')
-
-    def create_child_context(self):
-        return ContextDict(self._spf, self)
-
-    def __repr__(self):
-        _dict_repr = super(ContextDict, self).__repr__()
-        return "ContextDict({:s})".format(_dict_repr)
-
-    def __getitem__(self, item):
-        try:
-            return super(ContextDict, self).__getitem__(item)
-        except KeyError as e:
-            parents_searched = [self,]
-            parent = self._parent_context
-            while parent:
-                try:
-                    return super(ContextDict, parent).__getitem__(item)
-                except KeyError as e:
-                    parents_searched.append(parent)
-                    # noinspection PyProtectedMember
-                    next_parent = parent._parent_context
-                    if next_parent in parents_searched:
-                        raise RuntimeError("Recursive ContextDict found!")
-                    parent = next_parent
-            raise e
-
-    def __new__(cls, spf, parent, *args, **kwargs):
-        self = super(ContextDict, cls).__new__(cls, *args, **kwargs)
-        if parent is not None:
-            assert isinstance(parent, ContextDict), "Parent context must be a valid initialised ContextDict"
-            self._parent_context = parent
-        else:
-            self._parent_context = None
-        self._spf = spf
-        return self
-
-    def __init__(self, *args, **kwargs):
-        args = list(args)
-        _ = args.pop(0)  # remove spf
-        _ = args.pop(0)  # remove parent
-        super(ContextDict, self).__init__(*args, **kwargs)
-
-
 class SanicPlugin(object):
+    __slots__ = ('app', '_spf', '_plugin_name', '_url_prefix', '_routes', '_middlewares', '_exceptions',
+                 '_listeners', '__weakref__')
+
     # Decorator
     def middleware(self, *args, **kwargs):
         """Decorate and register middleware
-        Unlike app.middleware, this _cannot_ be called as @plugin.middleware without args.
         """
         kwargs.setdefault('priority', 5)
         kwargs.setdefault('relative', None)
-        kwargs.setdefault('kind', None)
+        kwargs.setdefault('attach_to', None)
         kwargs.setdefault('with_context', False)
+        if len(args) == 1 and callable(args[0]):
+            middleware_f = args[0]
+            self._middlewares.append(FutureMiddleware(middleware_f, args=tuple(), kwargs=kwargs))
+            return middleware_f
+
         def f(middleware):
             self._middlewares.append(FutureMiddleware(middleware, args=args, kwargs=kwargs))
             return middleware
+        return f
+
+    def exception(self, *args, **kwargs):
+        """Decorate and register an exception handler
+        """
+        def f(handler):
+            self._exceptions.append(FutureException(handler, args=args, kwargs=kwargs))
+            return handler
         return f
 
     def listener(self, event, *args, **kwargs):
@@ -81,10 +53,9 @@ class SanicPlugin(object):
         return f
 
     def route(self, uri, *args, **kwargs):
-        """Create a blueprint route from a decorated function.
+        """Create a plugin route from a decorated function.
 
         :param uri: endpoint at which the route will be accessible.
-        :param methods: list of acceptable HTTP methods.
         """
         kwargs.setdefault('methods', frozenset({'GET'}))
         kwargs.setdefault('host', None)
@@ -94,49 +65,21 @@ class SanicPlugin(object):
         ##kwargs.setdefault('name', None)
 
         def decorator(handler):
-            route = FutureRoute(handler, uri, args, kwargs)
-            self._routes.append(route)
+            self._routes.append(FutureRoute(handler, uri, args, kwargs))
             return handler
         return decorator
 
-    def register(self, *args, _app=None, _spf=None, _plugin_name=None, _url_prefix=None, **kwargs):
-        error_str = "This plugin must be initialised using the Sanic Plugins Framework"
-        assert _spf is not None, error_str
-        assert _app is not None, error_str
-        assert _plugin_name is not None, error_str
-        self.app = _app
-        self._spf = _spf
-        self._plugin_name = _plugin_name
-        self._url_prefix = _url_prefix
-        # Routes
-        for r in self._routes:
-            # attach the plugin name to the handler so that it can be
-            # prefixed properly in the router
-            r.handler.__blueprintname__ = self._plugin_name
-            # Prepend the plugin URI prefix if available
-            uri = _url_prefix + r.uri if _url_prefix else r.uri
-            self._spf._plugin_register_route(r.handler, self, uri[1:] if uri.startswith('//') else uri,
-                                             *r.args, **r.kwargs)
-
-        #middlewares
-        for m in self._middlewares:
-            self._spf._plugin_register_middleware(m.middleware, self, *m.args, **m.kwargs)
-
-        #exceptions
-        for e in self._exceptions:
-            self._spf._plugin_register_exception(e.handler, self, *e.args, **e.kwargs)
-
-        #listeners
-        for event, listeners in self._listeners.items():
-            for listener in listeners:
-                self._spf._plugin_register_listener(event, listener, self)
+    def on_registered(self):
+        pass
 
     @property
     def context(self):
         try:
             return self._spf.get_context(self._plugin_name)
-        except (AttributeError, KeyError) as e:
-            raise e
+        except KeyError as k:
+            raise k
+        except AttributeError as a:
+            raise RuntimeError("Cannot use the plugin's Context before it is registered.")
 
     def log(self, level, message, *args, **kwargs):
         return self._spf.log(level, message, *args, plugin=self, **kwargs)
@@ -150,12 +93,13 @@ class SanicPlugin(object):
         self._listeners = defaultdict(list)
         self._spf = None
         self._plugin_name = None
+        self._url_prefix = None
 
 
 class SanicPluginsFramework(object):
     __slots__ = ('_running', '_logger', '_app', '_plugin_names', '_contexts', '_pre_request_middleware',
                  '_post_request_middleware', '_pre_response_middleware', '_post_response_middleware',
-                 '_loop')
+                 '_loop', '__weakref__')
 
     def log(self, level, message, *args, plugin=None, **kwargs):
         if plugin is not None:
@@ -178,14 +122,15 @@ class SanicPluginsFramework(object):
             raise RuntimeError("Plugin {:s} is already registered!".format(name))
         self._plugin_names.add(name)
         app = self._app
-        self._contexts[name] = context = self._contexts.create_child_context()
-        plugin_instance = plugin.register(*args, _app=app, _spf=self, _plugin_name=name, **kwargs)
-        _plugins = self._plugins
-        _plugins[name] = _plugin_dict = _plugins.create_child_context()
+        shared_context = self.shared_context
+        self._contexts[name] = context = ContextDict(self, shared_context, {'shared': shared_context})
+        plugin = _plugin_register(plugin, *args, _app=app, _spf=self, _plugin_name=name, **kwargs)
+        _plugins_context = self._plugins_context
+        _plugins_context[name] = _plugin_dict = _plugins_context.create_child_context()
         _plugin_dict['name'] = name
-        _plugin_dict['instance'] = plugin_instance
+        _plugin_dict['instance'] = plugin
         _plugin_dict['context'] = context
-        return plugin_instance
+        return plugin
 
     def _plugin_register_route(self, handler, plugin, uri, *args, with_context=False, **kwargs):
         if with_context:
@@ -205,24 +150,31 @@ class SanicPluginsFramework(object):
             handler = partial(handler, context=plugin.context)
         return self._app.exception(*args, **kwargs)(handler)
 
-
-    def _plugin_register_middleware(self, middleware, plugin, priority, relative=None, kind=None, with_context=False):
+    def _plugin_register_middleware(self, middleware, plugin, *args, priority=5, relative=None,
+                                    attach_to=None, with_context=False, **kwargs):
         assert isinstance(priority, int), "Priority must be an integer! No floats!"
         assert 0 <= priority <= 9, "Priority must be between 0 and 9 (inclusive), 0 is highest priority, 9 is least."
         assert isinstance(plugin, SanicPlugin), "Plugin middleware only works with a plugin derived from SanicPlugin."
+        if len(args) > 0 and isinstance(args[0], str) and attach_to is None:
+            attach_to = args[0]  # for backwards compatibility with Sanic, the first arg is interpreted as 'attach_to'
         if with_context:
             middleware = partial(middleware, context=plugin.context)
-        priority_middleware = (priority, middleware)
-        if kind is None or kind == "request":
+        if attach_to is None or attach_to == "request":
+            insert_order = self._pre_request_middleware.qsize() + self._post_request_middleware.qsize()
+            priority_middleware = (priority, insert_order, middleware)
             if relative is None or relative == 'pre':  # plugin request middleware default to pre-app middleware
                 self._pre_request_middleware.put_nowait(priority_middleware)
             else:  # post
+                assert relative == "post", "A request middleware must have relative = pre or post"
                 self._post_request_middleware.put_nowait(priority_middleware)
         else:  # response
-            assert kind == "response", "A middleware kind must be either request or response."
+            assert attach_to == "response", "A middleware kind must be either request or response."
+            insert_order = self._post_response_middleware.qsize() + self._pre_response_middleware.qsize()
+            priority_middleware = (0-priority, 0.0-insert_order, middleware)  # so they are sorted backwards
             if relative is None or relative == 'post':  # plugin response middleware default to post-app middleware
                 self._post_response_middleware.put_nowait(priority_middleware)
             else:  # pre
+                assert relative == "pre", "A response middleware must have relative = pre or post"
                 self._pre_response_middleware.put_nowait(priority_middleware)
         return middleware
 
@@ -230,9 +182,16 @@ class SanicPluginsFramework(object):
         return self._app.listener(event)(listener)
 
     @property
-    def _plugins(self):
+    def _plugins_context(self):
         try:
             return self._contexts['_plugins']
+        except (AttributeError, KeyError):
+            raise RuntimeError("Sanic Plugins Framework does not have a valid plugins context!")
+
+    @property
+    def shared_context(self):
+        try:
+            return self._contexts['shared']
         except (AttributeError, KeyError):
             raise RuntimeError("Sanic Plugins Framework does not have a valid plugins context!")
 
@@ -257,7 +216,7 @@ class SanicPluginsFramework(object):
     async def _run_request_middleware(self, request):
         assert self._running, "App must be running before you can run middleware!"
         if self._pre_request_middleware:
-            for (pri, middleware) in self._pre_request_middleware:
+            for (_pri, _ins, middleware) in self._pre_request_middleware:
                 response = middleware(request)
                 if isawaitable(response):
                     response = await response
@@ -271,7 +230,7 @@ class SanicPluginsFramework(object):
                 if response:
                     return response
         if self._post_request_middleware:
-            for (pri, middleware) in self._post_request_middleware:
+            for (_pri, _ins, middleware) in self._post_request_middleware:
                 response = middleware(request)
                 if isawaitable(response):
                     response = await response
@@ -281,7 +240,7 @@ class SanicPluginsFramework(object):
 
     async def _run_response_middleware(self, request, response):
         if self._pre_response_middleware:
-            for (pri, middleware) in self._pre_response_middleware:
+            for (_pri, _ins, middleware) in self._pre_response_middleware:
                 _response = middleware(request, response)
                 if isawaitable(_response):
                     _response = await _response
@@ -297,7 +256,7 @@ class SanicPluginsFramework(object):
                     response = _response
                     break
         if self._post_response_middleware:
-            for (pri, middleware) in self._post_response_middleware:
+            for (_pri, _ins, middleware) in self._post_response_middleware:
                 _response = middleware(request, response)
                 if isawaitable(_response):
                     _response = await _response
@@ -310,6 +269,8 @@ class SanicPluginsFramework(object):
         assert self._app == app, "Sanic Plugins Framework is not assigned to the correct Sanic App!"
         assert loop, "Sanic server did not give us a loop to use! Check for app updates, you might out of date."
         self._loop = loop
+        if self._running:
+            return  # during testing, this will be called _many_ times. Ignore if this is already called.
         self._running = True
         # sort and freeze these
         self._pre_request_middleware = tuple(self._pre_request_middleware.get()
@@ -320,7 +281,6 @@ class SanicPluginsFramework(object):
                                               for _ in range(self._pre_response_middleware.qsize()))
         self._post_response_middleware = tuple(self._post_response_middleware.get()
                                                for _ in range(self._post_response_middleware.qsize()))
-        return False
 
     def __new__(cls, app):
         assert app, "Sanic Plugins Framework must be given a valid Sanic App to work with."
@@ -336,10 +296,8 @@ class SanicPluginsFramework(object):
         self._pre_response_middleware = PriorityQueue()
         self._post_response_middleware = PriorityQueue()
         self._contexts = ContextDict(self, None)
-        self._contexts['shared'] = _shared = self._contexts.create_child_context()
-        self._contexts['_plugins'] = _plugins = self._contexts.create_child_context()
-        _plugins['spf'] = self
-        _shared['app'] = app
+        self._contexts['shared'] = shared_context = ContextDict(self, None, {'app': app})
+        self._contexts['_plugins'] = _plugins_context = ContextDict(self, None, {'spf': self})
         # monkey patch the app!
         app._run_request_middleware = self._run_request_middleware
         app._run_response_middleware = self._run_response_middleware
@@ -351,3 +309,39 @@ class SanicPluginsFramework(object):
         assert self._app, "Sanic Plugin Framework as not initialized correctly."
         self._app.listener('before_server_start')(self._on_before_server_start)
         super(SanicPluginsFramework, self).__init__(*args, **kwargs)
+
+
+def _plugin_register(plugin, *args, _app=None, _spf=None, _plugin_name=None, _url_prefix=None, **kwargs):
+    error_str = "This plugin must be initialised using the Sanic Plugins Framework"
+    assert _spf is not None, error_str
+    assert _app is not None, error_str
+    assert _plugin_name is not None, error_str
+    plugin.app = _app
+    plugin._spf = _spf
+    plugin._plugin_name = _plugin_name
+    plugin._url_prefix = _url_prefix
+    # Routes
+    for r in plugin._routes:
+        # attach the plugin name to the handler so that it can be
+        # prefixed properly in the router
+        r.handler.__blueprintname__ = plugin._plugin_name
+        # Prepend the plugin URI prefix if available
+        uri = _url_prefix + r.uri if _url_prefix else r.uri
+        plugin._spf._plugin_register_route(r.handler, plugin, uri[1:] if uri.startswith('//') else uri,
+                                           *r.args, **r.kwargs)
+
+    # Middleware
+    for m in plugin._middlewares:
+        plugin._spf._plugin_register_middleware(m.middleware, plugin, *m.args, **m.kwargs)
+
+    # Exceptions
+    for e in plugin._exceptions:
+        plugin._spf._plugin_register_exception(e.handler, plugin, *e.args, **e.kwargs)
+
+    # Listeners
+    for event, listeners in plugin._listeners.items():
+        for listener in listeners:
+            plugin._spf._plugin_register_listener(event, listener, plugin)
+    plugin.on_registered()  # this should only ever run once!
+    plugin.on_registered = partial(SanicPlugin.on_registered, plugin)  # replace it with the `pass` function above.
+    return plugin

@@ -1,0 +1,7 @@
+coverage
+flake8
+pytest
+tox
+ujson
+uvloop
+sanic>=0.6.0

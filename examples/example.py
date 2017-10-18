@@ -1,8 +1,7 @@
 from sanic import Sanic
 from sanic.response import text
-
-from spf.plugin import SanicPluginsFramework
-from my_plugin import my_plugin
+from spf import SanicPluginsFramework
+from examples.my_plugin import my_plugin
 from logging import DEBUG
 
 app = Sanic(__name__)

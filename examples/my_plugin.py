@@ -3,7 +3,17 @@ from spf.plugin import SanicPlugin
 from sanic.response import text
 
 class MyPlugin(SanicPlugin):
-    pass
+    def on_registered(self):
+        c = self.context
+        shared = c.shared
+        shared.hello_shared = "test2"
+        c.hello1 = "test1"
+        _a = c.hello1
+        _b = c.hello_shared
+
+    def __init__(self, *args, **kwargs):
+        super(MyPlugin, self).__init__(*args, **kwargs)
+
 
 my_plugin = MyPlugin()
 
