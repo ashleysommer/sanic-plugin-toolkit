@@ -1,4 +1,3 @@
-from logging import DEBUG
 from spf.plugin import SanicPlugin
 from sanic.response import text
 

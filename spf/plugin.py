@@ -213,8 +213,32 @@ class SanicPluginsFramework(object):
             _context = self._contexts['shared']
         return _context.__getitem__(item)
 
+    def create_temporary_request_context(self, request):
+        shared_context = self.shared_context
+        shared_context['request'] = ContextDict(self, None, {'request': request})
+        for name, _p in self._plugins_context.items():
+            if isinstance(_p, ContextDict) and 'instance' in _p and isinstance(_p['instance'], SanicPlugin):
+                if 'context' in _p and isinstance(_p['context'], ContextDict):
+                    _p_context = _p['context']
+                    _p_context['request'] = ContextDict(self, None, {'request': request})
+
+    def delete_temporary_request_context(self):
+        shared_context = self.shared_context
+        try:
+            del shared_context['request']
+        except KeyError:
+            pass
+        for name, _p in self._plugins_context.items():
+            if isinstance(_p, ContextDict) and 'instance' in _p and isinstance(_p['instance'], SanicPlugin):
+                if 'context' in _p and isinstance(_p['context'], ContextDict):
+                    try:
+                        del _p['context']['request']
+                    except KeyError:
+                        pass
+
     async def _run_request_middleware(self, request):
         assert self._running, "App must be running before you can run middleware!"
+        self.create_temporary_request_context(request)
         if self._pre_request_middleware:
             for (_pri, _ins, middleware) in self._pre_request_middleware:
                 response = middleware(request)
@@ -263,6 +287,7 @@ class SanicPluginsFramework(object):
                 if _response:
                     response = _response
                     break
+        self.delete_temporary_request_context()
         return response
 
     def _on_before_server_start(self, app, loop=None):
