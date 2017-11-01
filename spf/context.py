@@ -14,7 +14,7 @@ class ContextDict(dict):
         try:
             return super(ContextDict, self).__getitem__(item)
         except KeyError as e1:
-            parents_searched = [self,]
+            parents_searched = [self, ]
             parent = self._parent_context
             while parent:
                 try:
@@ -47,7 +47,8 @@ class ContextDict(dict):
     def __new__(cls, spf, parent, *args, **kwargs):
         self = super(ContextDict, cls).__new__(cls, *args, **kwargs)
         if parent is not None:
-            assert isinstance(parent, ContextDict), "Parent context must be a valid initialised ContextDict"
+            assert isinstance(parent, ContextDict),\
+                "Parent context must be a valid initialised ContextDict"
             self._parent_context = parent
         else:
             self._parent_context = None
@@ -56,6 +57,6 @@ class ContextDict(dict):
 
     def __init__(self, *args, **kwargs):
         args = list(args)
-        _ = args.pop(0)  # remove spf
-        _ = args.pop(0)  # remove parent
+        args.pop(0)  # remove spf
+        args.pop(0)  # remove parent
         super(ContextDict, self).__init__(*args, **kwargs)
