@@ -36,7 +36,7 @@ def mw2(request, context):
     print("Hello world")
 
 
-@my_plugin.middleware(priority=8, kind='response', relative='pre', with_context=True)
+@my_plugin.middleware(priority=8, attach_to='response', relative='pre', with_context=True)
 def mw3(request, response, context):
     assert 'test1' in context and context['test1'] == "testa"
     assert 'test2' in context and context['test2'] == "testb"

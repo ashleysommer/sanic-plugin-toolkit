@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 from collections import namedtuple, defaultdict
-from functools import partial
+from functools import partial, update_wrapper
 from inspect import isawaitable, ismodule
 from queue import PriorityQueue
 import importlib
 import logging
 import re
-from sanic import Sanic
+from sanic import Sanic, Blueprint
 from uuid import uuid1
-
 from spf.context import ContextDict
 
 
@@ -34,7 +33,7 @@ FutureException = namedtuple('Exception', ['handler', 'exceptions', 'kwargs'])
 
 
 class SanicPlugin(object):
-    __slots__ = ('app', '_spf', '_plugin_name', '_url_prefix', '_routes',
+    __slots__ = ('_spf', '_plugin_name', '_url_prefix', '_routes',
                  '_middlewares', '_exceptions', '_listeners', '_initialized',
                  '__weakref__')
 
@@ -140,6 +139,12 @@ class SanicPlugin(object):
         pass
 
     @property
+    def app(self):
+        if self._spf is None:
+            return None
+        return self._spf._app
+
+    @property
     def context(self):
         try:
             return self._spf.get_context(self._plugin_name)
@@ -149,8 +154,34 @@ class SanicPlugin(object):
             raise RuntimeError("Cannot use the plugin's Context before it is "
                                "registered.")
 
+    def url_for(self, view_name, *args, **kwargs):
+        app = self.app
+        if app is None:
+            return None
+        if isinstance(app, Blueprint):
+            self.warning("Cannot use url_for when plugin is registered "
+                         "on a Blueprint. Use `app.url_for` instead.")
+            return None
+        constructed_name = "{}.{}".format(self._plugin_name, view_name)
+        return app.url_for(constructed_name, *args, **kwargs)
+
     def log(self, level, message, *args, **kwargs):
         return self._spf.log(level, message, *args, plugin=self, **kwargs)
+
+    def debug(self, message, *args, **kwargs):
+        return self.log(logging.DEBUG, message, *args, **kwargs)
+
+    def info(self, message, *args, **kwargs):
+        return self.log(logging.INFO, message, *args, **kwargs)
+
+    def warning(self, message, *args, **kwargs):
+        return self.log(logging.WARNING, message, *args, **kwargs)
+
+    def error(self, message, *args, **kwargs):
+        return self.log(logging.ERROR, message, *args, **kwargs)
+
+    def critical(self, message, *args, **kwargs):
+        return self.log(logging.CRITICAL, message, *args, **kwargs)
 
     def __new__(cls, *args, **kwargs):
         # making a bold assumption here.
@@ -191,7 +222,6 @@ class SanicPlugin(object):
         assert len(kwargs) < 1,\
             "Unexpected keyword arguments passed to this Sanic Plugins."
         super(SanicPlugin, self).__init__(*args, **kwargs)
-        self.app = None
         self._routes = []
         self._middlewares = []
         self._exceptions = []
@@ -265,32 +295,32 @@ class SanicPluginsFramework(object):
                 name = str(uuid1(None, None))
         assert isinstance(name, str), \
             "Plugin name must be a python unicode string!"
+
         if name in self._plugin_names:
             raise RuntimeError(
                 "Plugin {:s} is already registered!".format(name))
         self._plugin_names.add(name)
-        app = self._app
         shared_context = self.shared_context
         self._contexts[name] = context = ContextDict(
             self, shared_context, {'shared': shared_context})
-        plugin = self._register_helper(plugin, *args, _app=app, _spf=self,
-                                       _plugin_name=name, **kwargs)
         _p_context = self._plugins_context
         _p_context[name] = _plugin_dict = _p_context.create_child_context()
         _plugin_dict['name'] = name
-        _plugin_dict['instance'] = plugin
         _plugin_dict['context'] = context
+        plugin = self._register_helper(plugin, *args, _spf=self,
+                                       _plugin_name=name, **kwargs)
+        _plugin_dict['instance'] = plugin
         return plugin
 
     @staticmethod
-    def _register_helper(plugin, *args, _app=None, _spf=None,
+    def _register_helper(plugin, *args, _spf=None,
                          _plugin_name=None, _url_prefix=None, **kwargs):
         error_str = "Plugin must be initialised using the " \
                     "Sanic Plugins Framework"
         assert _spf is not None, error_str
-        assert _app is not None, error_str
         assert _plugin_name is not None, error_str
-        plugin.app = _app
+        _app = _spf._app
+        assert _app is not None, error_str
         plugin._spf = _spf
         plugin._plugin_name = _plugin_name
         plugin._url_prefix = _url_prefix
@@ -306,27 +336,33 @@ class SanicPluginsFramework(object):
         for r in plugin._routes:
             # attach the plugin name to the handler so that it can be
             # prefixed properly in the router
-            r.handler.__blueprintname__ = plugin._plugin_name
+            if isinstance(_app, Blueprint):
+                # blueprint always handles adding __blueprintname__
+                # So we identify ourselves here a different way.
+                handler_name = r.handler.__name__
+                r.handler.__name__ = "{}.{}".format(_plugin_name, handler_name)
+            else:
+                r.handler.__blueprintname__ = plugin._plugin_name
             # Prepend the plugin URI prefix if available
             uri = _url_prefix + r.uri if _url_prefix else r.uri
-            plugin._spf._plugin_register_route(
+            _spf._plugin_register_route(
                 r.handler, plugin, uri[1:] if uri.startswith('//') else uri,
                 *r.args, **r.kwargs)
 
         # Middleware
         for m in plugin._middlewares:
-            plugin._spf._plugin_register_middleware(
+            _spf._plugin_register_middleware(
                 m.middleware, plugin, *m.args, **m.kwargs)
 
         # Exceptions
         for e in plugin._exceptions:
-            plugin._spf._plugin_register_exception(
+            _spf._plugin_register_exception(
                 e.handler, plugin, *e.exceptions, **e.kwargs)
 
         # Listeners
         for event, listeners in plugin._listeners.items():
             for listener in listeners:
-                plugin._spf._plugin_register_listener(event, listener, plugin)
+                _spf._plugin_register_listener(event, listener, plugin)
 
         # this should only ever run once!
         plugin.on_registered(*args, **kwargs)
@@ -518,8 +554,10 @@ class SanicPluginsFramework(object):
         return response
 
     def _on_before_server_start(self, app, loop=None):
-        assert self._app == app,\
-            "Sanic Plugins Framework is not assigned to the correct Sanic App!"
+        if not isinstance(self._app, Blueprint):
+            assert self._app == app,\
+                    "Sanic Plugins Framework is not assigned to the correct " \
+                    "Sanic App!"
         assert loop,\
             "Sanic server did not give us a loop to use! " \
             "Check for app updates, you might out of date."
@@ -542,10 +580,89 @@ class SanicPluginsFramework(object):
             tuple(self._post_response_middleware.get()
                   for _ in range(self._post_response_middleware.qsize()))
 
+    def _patch_app(self, app):
+        # monkey patch the app!
+        app._run_request_middleware = self._run_request_middleware
+        app._run_response_middleware = self._run_response_middleware
+        app.config['__SPF_INSTANCE'] = self
+
+    def _patch_blueprint(self, bp):
+        # monkey patch the blueprint!
+        # Caveat! We cannot take over the sanic middleware runner when
+        # app is a blueprint. We will do this a different way.
+        _spf = self
+
+        async def run_bp_pre_request_mw(request):
+            nonlocal _spf
+            _spf.create_temporary_request_context(request)
+            if _spf._pre_request_middleware:
+                for (_pri, _ins, middleware) in _spf._pre_request_middleware:
+                    response = middleware(request)
+                    if isawaitable(response):
+                        response = await response
+                    if response:
+                        return response
+
+        async def run_bp_post_request_mw(request):
+            nonlocal _spf
+            if _spf._post_request_middleware:
+                for (_pri, _ins, middleware) in _spf._post_request_middleware:
+                    response = middleware(request)
+                    if isawaitable(response):
+                        response = await response
+                    if response:
+                        return response
+
+        async def run_bp_pre_response_mw(request, response):
+            nonlocal _spf
+            if _spf._pre_response_middleware:
+                for (_pri, _ins, middleware) in _spf._pre_response_middleware:
+                    _response = middleware(request, response)
+                    if isawaitable(_response):
+                        _response = await _response
+                    if _response:
+                        response = _response
+                        break
+
+        async def run_bp_post_response_mw(request, response):
+            nonlocal _spf
+            if _spf._post_response_middleware:
+                for (_pri, _ins, middleware) in _spf._post_response_middleware:
+                    _response = middleware(request, response)
+                    if isawaitable(_response):
+                        _response = await _response
+                    if _response:
+                        response = _response
+                        break
+            _spf.delete_temporary_request_context()
+
+        orig_register = bp.register
+
+        def bp_register(bp_self, app, options):
+            nonlocal orig_register
+            from sanic.blueprints import FutureMiddleware as BPFutureMW
+            pre_request = BPFutureMW(run_bp_pre_request_mw, args=(),
+                                     kwargs={'attach_to': 'request'})
+            post_request = BPFutureMW(run_bp_post_request_mw, args=(),
+                                      kwargs={'attach_to': 'request'})
+            pre_response = BPFutureMW(run_bp_pre_response_mw, args=(),
+                                      kwargs={'attach_to': 'response'})
+            post_response = BPFutureMW(run_bp_post_response_mw, args=(),
+                                       kwargs={'attach_to': 'response'})
+            # this order is very important. Don't change it. It is correct.
+            bp_self.middlewares.insert(0, post_response)
+            bp_self.middlewares.insert(0, pre_request)
+            bp_self.middlewares.append(post_request)
+            bp_self.middlewares.append(pre_response)
+
+            orig_register(app, options)
+        bp.register = update_wrapper(partial(bp_register, bp), orig_register)
+        setattr(bp, '__SPF_INSTANCE', self)
+
     def __new__(cls, app, *args, **kwargs):
         assert app, "SPF must be given a valid Sanic App to work with."
-        assert isinstance(app, Sanic),\
-            "SPF only works with Sanic Apps. "\
+        assert isinstance(app, Sanic) or isinstance(app, Blueprint),\
+            "SPF only works with Sanic Apps or Blueprints. " \
             "Please pass in an app instance to the SPF constructor."
         # An app _must_ only have one spf instance associated with it.
         # If there is already one registered on the app, return that one.
@@ -555,6 +672,15 @@ class SanicPluginsFramework(object):
                 "This app is already registered to a different type of " \
                 "Sanic Plugins Framework!"
             return instance
+        except AttributeError:  # app must then be a blueprint
+            try:
+                instance = getattr(app, '__SPF_INSTANCE')
+                assert isinstance(instance, cls),\
+                    "This Blueprint is already registered to a different " \
+                    "type of Sanic Plugins Framework!"
+                return instance
+            except AttributeError:
+                pass
         except KeyError:
             pass
         self = super(SanicPluginsFramework, cls).__new__(cls)
@@ -570,15 +696,16 @@ class SanicPluginsFramework(object):
         self._contexts = ContextDict(self, None)
         self._contexts['shared'] = ContextDict(self, None, {'app': app})
         self._contexts['_plugins'] = ContextDict(self, None, {'spf': self})
-        # monkey patch the app!
-        app._run_request_middleware = self._run_request_middleware
-        app._run_response_middleware = self._run_response_middleware
-        app.config['__SPF_INSTANCE'] = self
+        if isinstance(app, Blueprint):
+            self._patch_blueprint(app)
+        else:
+            self._patch_app(app)
         return self
 
     def __init__(self, *args, **kwargs):
-        args = list(args)
-        args.pop(0)  # remove 'app' arg from the __new__ fn
+        args = list(args)  # tuple is not mutable. Change it to a list.
+        if len(args) > 0:
+            args.pop(0)  # remove 'app' arg
         assert self._app and self._contexts,\
             "Sanic Plugin Framework as not initialized correctly."
         self._app.listener('before_server_start')(self._on_before_server_start)
