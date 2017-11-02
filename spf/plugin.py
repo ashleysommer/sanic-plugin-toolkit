@@ -188,7 +188,8 @@ class SanicPlugin(object):
         # Assuming that if a sanic plugin is initialized using
         # `MyPlugin(app)`, then the user is attempting to do a legacy plugin
         # instantiation.
-        if args and len(args) > 0 and isinstance(args[0], Sanic):
+        if args and len(args) > 0 and \
+                (isinstance(args[0], Sanic) or isinstance(args[0], Blueprint)):
             app = args[0]
             try:
                 mod_name = cls.__module__

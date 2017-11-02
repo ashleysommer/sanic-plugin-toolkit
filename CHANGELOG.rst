@@ -1,6 +1,13 @@
 Sanic Plugins Framework
 =======================
 
+0.3.1.dev20171102
+-----------------
+Fixed a bug when getting the spf singleton from a Blueprint
+
+This fixed Legacy-style plugin registration when using blueprints.
+
+
 0.3.0.dev20171102
 -----------------
 Plugins can now be applied to Blueprints! This is a game changer!
