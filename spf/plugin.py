@@ -183,6 +183,59 @@ class SanicPlugin(object):
     def critical(self, message, *args, **kwargs):
         return self.log(logging.CRITICAL, message, *args, **kwargs)
 
+    @classmethod
+    def decorate(cls, app, *args, run_middleware=True, with_context=False,
+                 **kwargs):
+        """
+        This is a decorator that can be used to apply this plugin to a specific
+        route/view on your app, rather than the whole app.
+        :param app:
+        :param args:
+        :param kwargs:
+        :return: the decorated route/view
+        """
+        spf = SanicPluginsFramework(app)  # get the singleton from the app
+        try:
+            plugin = spf.register_plugin(cls, skip_reg=True)
+        except ValueError as e:
+            # this is normal, if this plugin has been registered previously
+            assert e.args and len(e.args) > 1
+            plugin = e.args[1]
+
+        def _decorator(f):
+            nonlocal run_middleware, with_context, args, kwargs
+
+            async def wrapper(request, *a, **kw):
+                nonlocal run_middleware, with_context, f, args, kwargs
+                if run_middleware:
+                    # do request middleware
+                    raise NotImplementedError("Middlware on decorated views "
+                                              "is not yet implemented.")
+                c = plugin.context if with_context else None
+                resp = await plugin.route_wrapper(f, request, a, kw, *args,
+                                                  context=c, **kwargs)
+                if run_middleware:
+                    # do response middleware
+                    raise NotImplementedError("Middlware on decorated views "
+                                              "is not yet implemented.")
+                return resp
+
+            return update_wrapper(wrapper, f)
+        return _decorator
+
+    async def route_wrapper(self, route, request, request_args, request_kw,
+                            *decorator_args, context=None, **decorator_kw):
+        """This is the function that is called when a route is decorated with
+           your plugin decorator. Context will normally be None, but the user
+           can pass use_context=True so the route will get the plugin
+           context
+        """
+        # by default, do nothing, just run the wrapped function
+        resp = route(request, *request_args, **request_kw)
+        if isawaitable(resp):
+            resp = await resp
+        return resp
+
     def __new__(cls, *args, **kwargs):
         # making a bold assumption here.
         # Assuming that if a sanic plugin is initialized using
@@ -245,7 +298,8 @@ class SanicPluginsFramework(object):
                                           str(message))
         return self._logger.log(level, message, *args, **kwargs)
 
-    def register_plugin(self, plugin, *args, name=None, **kwargs):
+    def register_plugin(self, plugin, *args, name=None, skip_reg=False,
+                        **kwargs):
         assert not self._running, "Cannot add, remove, or change plugins " \
                                   "after the App has started serving."
         assert plugin, "Plugin must be a valid type! Do not pass in `None` " \
@@ -298,8 +352,8 @@ class SanicPluginsFramework(object):
             "Plugin name must be a python unicode string!"
 
         if name in self._plugin_names:
-            raise RuntimeError(
-                "Plugin {:s} is already registered!".format(name))
+            raise ValueError(
+                "Plugin {:s} is already registered!".format(name), plugin)
         self._plugin_names.add(name)
         shared_context = self.shared_context
         self._contexts[name] = context = ContextDict(
@@ -308,6 +362,8 @@ class SanicPluginsFramework(object):
         _p_context[name] = _plugin_dict = _p_context.create_child_context()
         _plugin_dict['name'] = name
         _plugin_dict['context'] = context
+        if skip_reg:
+            return plugin
         plugin = self._register_helper(plugin, *args, _spf=self,
                                        _plugin_name=name, **kwargs)
         _plugin_dict['instance'] = plugin

@@ -27,5 +27,5 @@ def test_duplicate_registration_1():
         assert not plug2
     except Exception as e:
         exc = e
-    assert isinstance(exc, RuntimeError)
+    assert isinstance(exc, ValueError)
 

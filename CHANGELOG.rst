@@ -1,6 +1,15 @@
 Sanic Plugins Framework
 =======================
 
+0.3.2.dev20171102
+-----------------
+First pass cut at implementing a view-specific plugin, using a view decorator.
+
+This is very handy for when you don't want to register a plugin on the whole application (or blueprint),
+rather you just want the plugin to run on specific select views/routes. The main driver for this function is for
+porting Sanic-CORS plugin to use sanic-plugins-framework, but it will be useful for may other plugins too.
+
+
 0.3.1.dev20171102
 -----------------
 Fixed a bug when getting the spf singleton from a Blueprint

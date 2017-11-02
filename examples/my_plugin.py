@@ -54,6 +54,9 @@ def t1(request):
     c = my_plugin.context
     return text('from plugin!')
 
+def decorate(app, *args, **kwargs):
+    return my_plugin.decorate(app, *args, run_middleware=False, **kwargs)
 
-__all__ = ["my_plugin"]
+
+__all__ = ["my_plugin", "decorate"]
 
