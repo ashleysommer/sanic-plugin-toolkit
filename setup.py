@@ -1,7 +1,7 @@
 """
 Sanic Plugins Framework
 ~~~~~~~~~~~~~~~~~~~~~~~
-TODO: About
+Doing all of the boilerplate to create a Sanic Plugin, so you don't have to.
 
 :copyright: (c) 2017 by Ashley Sommer.
 :license: MIT, see LICENSE for more details.
@@ -28,12 +28,12 @@ with open_local(['spf', '__init__.py'], encoding='latin1') as fp:
     except IndexError:
         raise RuntimeError('Unable to determine version.')
 
-with open_local(['README.rst']) as rm:
-    long_description = rm.read()
+with open_local(['README.rst']) as readme:
+    long_description = readme.read()
 
 
-with open_local(['requirements.txt']) as f:
-    install_requires = f.read().split("\n")
+with open_local(['requirements.txt']) as req:
+    install_requires = req.read().split("\n")
 
 setup(
     name='Sanic-Plugins-Framework',
@@ -42,7 +42,8 @@ setup(
     license='MIT',
     author='Ashley Sommer',
     author_email='ashleysommer@gmail.com',
-    description="TODO: desc",
+    description="Doing all of the boilerplate to create a Sanic Plugin, "
+                "so you don't have to.",
     long_description=long_description,
     packages=['spf'],
     zip_safe=False,

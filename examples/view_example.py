@@ -6,7 +6,7 @@ app = Sanic(__name__)
 
 @app.route('/')
 @my_plugin.decorate(app)
-def index(request):
+def index(request, context):
     return text("hello world")
 
 if __name__ == "__main__":

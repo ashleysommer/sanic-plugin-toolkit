@@ -1,6 +1,14 @@
 Sanic Plugins Framework
 =======================
 
+0.3.3.dev20171102
+-----------------
+Fixed bug in getting the plugin context object, when using the view/route decorator feature.
+
+Got decorator-level middleware working. It runs the middleware on a per-view basis if the Plugin is not registered
+on the app or blueprint, when decorating a view with a plugin.
+
+
 0.3.2.dev20171102
 -----------------
 First pass cut at implementing a view-specific plugin, using a view decorator.

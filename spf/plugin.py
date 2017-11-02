@@ -184,15 +184,19 @@ class SanicPlugin(object):
         return self.log(logging.CRITICAL, message, *args, **kwargs)
 
     @classmethod
-    def decorate(cls, app, *args, run_middleware=True, with_context=False,
+    def decorate(cls, app, *args, run_middleware=False, with_context=False,
                  **kwargs):
         """
         This is a decorator that can be used to apply this plugin to a specific
         route/view on your app, rather than the whole app.
         :param app:
+        :type app: Sanic | Blueprint
         :param args:
+        :type args: tuple(Any)
         :param kwargs:
+        :param kwargs: dict(Any)
         :return: the decorated route/view
+        :rtype: fn
         """
         spf = SanicPluginsFramework(app)  # get the singleton from the app
         try:
@@ -201,37 +205,107 @@ class SanicPlugin(object):
             # this is normal, if this plugin has been registered previously
             assert e.args and len(e.args) > 1
             plugin = e.args[1]
+        inst = spf.get_plugin(plugin._plugin_name)
+        regd = True if inst else None
+        if regd is True:
+            run_middleware = False
+        req_middleware = PriorityQueue()
+        resp_middleware = PriorityQueue()
+        # registered might be True, False or None at this point
+        if run_middleware:
+            for i, m in enumerate(plugin._middlewares):
+                attach_to = m.kwargs.pop('attach_to', 'request')
+                priority = m.kwargs.pop('priority', 5)
+                with_context = m.kwargs.pop('with_context', False)
+                handler = m.middleware
+                if attach_to == 'response':
+                    relative = m.kwargs.pop('relative', 'post')
+                    if relative == "pre":
+                        mw = (0, 0 - priority, 0 - i, handler,
+                              with_context, m.args, m.kwargs)
+                    else:  # relative = "post"
+                        mw = (1, 0 - priority, 0 - i, handler,
+                              with_context, m.args, m.kwargs)
+                    resp_middleware.put_nowait(mw)
+                else:  # attach_to = "request"
+                    relative = m.kwargs.pop('relative', 'pre')
+                    if relative == "post":
+                        mw = (1, priority, i, m.middleware, with_context,
+                              m.args, m.kwargs)
+                    else:  # relative = "pre"
+                        mw = (0, priority, i, m.middleware, with_context,
+                              m.args, m.kwargs)
+                    req_middleware.put_nowait(mw)
+
+        req_middleware = tuple(req_middleware.get()
+                               for _ in range(req_middleware.qsize()))
+        resp_middleware = tuple(resp_middleware.get()
+                                for _ in range(resp_middleware.qsize()))
 
         def _decorator(f):
-            nonlocal run_middleware, with_context, args, kwargs
+            nonlocal spf, plugin, regd, run_middleware, with_context
+            nonlocal req_middleware, resp_middleware, args, kwargs
 
             async def wrapper(request, *a, **kw):
-                nonlocal run_middleware, with_context, f, args, kwargs
-                if run_middleware:
-                    # do request middleware
-                    raise NotImplementedError("Middlware on decorated views "
-                                              "is not yet implemented.")
-                c = plugin.context if with_context else None
-                resp = await plugin.route_wrapper(f, request, a, kw, *args,
-                                                  context=c, **kwargs)
-                if run_middleware:
-                    # do response middleware
-                    raise NotImplementedError("Middlware on decorated views "
-                                              "is not yet implemented.")
-                return resp
+                nonlocal spf, plugin, regd, run_middleware, with_context
+                nonlocal req_middleware, resp_middleware, f, args, kwargs
+                # the plugin was not registered on the app, it might be now
+                if regd is None:
+                    _inst = spf.get_plugin(plugin._plugin_name)
+                    regd = _inst is not None
+
+                if run_middleware and not regd and len(req_middleware) > 0:
+                    context = plugin.context
+                    for (_a, _p, _i, handler, with_context, args, kwargs) \
+                            in req_middleware:
+                        if with_context:
+                            resp = handler(request, *args, context=context,
+                                           **kwargs)
+                        else:
+                            resp = handler(request, *args, **kwargs)
+                        if isawaitable(resp):
+                            resp = await resp
+                        if resp:
+                            return
+
+                response = await plugin.route_wrapper(
+                    f, request, a, kw, *args, with_context=with_context,
+                    **kwargs)
+                if isawaitable(response):
+                    response = await response
+                if run_middleware and not regd and len(resp_middleware) > 0:
+                    context = plugin.context
+                    for (_a, _p, _i, handler, with_context, args, kwargs) \
+                            in resp_middleware:
+                        if with_context:
+                            _resp = handler(request, response, *args,
+                                            context=context, **kwargs)
+                        else:
+                            _resp = handler(request, response, *args, **kwargs)
+                        if isawaitable(_resp):
+                            _resp = await _resp
+                        if _resp:
+                            response = _resp
+                            break
+                return response
 
             return update_wrapper(wrapper, f)
         return _decorator
 
     async def route_wrapper(self, route, request, request_args, request_kw,
-                            *decorator_args, context=None, **decorator_kw):
+                            *decorator_args, with_context=None,
+                            **decorator_kw):
         """This is the function that is called when a route is decorated with
            your plugin decorator. Context will normally be None, but the user
            can pass use_context=True so the route will get the plugin
            context
         """
         # by default, do nothing, just run the wrapped function
-        resp = route(request, *request_args, **request_kw)
+        if with_context:
+            context = self.context
+            resp = route(request, context, *request_args, **request_kw)
+        else:
+            resp = route(request, *request_args, **request_kw)
         if isawaitable(resp):
             resp = await resp
         return resp
@@ -298,6 +372,20 @@ class SanicPluginsFramework(object):
                                           str(message))
         return self._logger.log(level, message, *args, **kwargs)
 
+    def get_plugin(self, plugin_name):
+        _p_context = self._plugins_context
+        try:
+            _plugin_reg = _p_context[plugin_name]
+        except KeyError as k:
+            self.log(logging.WARNING, "Plugin not found!")
+            raise k
+        try:
+            inst = _plugin_reg['instance']
+        except KeyError:
+            self.log(logging.WARNING, "Plugin is not registered properly")
+            inst = None
+        return inst
+
     def register_plugin(self, plugin, *args, name=None, skip_reg=False,
                         **kwargs):
         assert not self._running, "Cannot add, remove, or change plugins " \
@@ -359,19 +447,23 @@ class SanicPluginsFramework(object):
         self._contexts[name] = context = ContextDict(
             self, shared_context, {'shared': shared_context})
         _p_context = self._plugins_context
-        _p_context[name] = _plugin_dict = _p_context.create_child_context()
-        _plugin_dict['name'] = name
-        _plugin_dict['context'] = context
+        _p_context[name] = _plugin_reg = _p_context.create_child_context()
+        _plugin_reg['name'] = name
+        _plugin_reg['context'] = context
         if skip_reg:
+            plugin._spf = self
+            plugin._plugin_name = name
+            # This indicates the plugin is not registered on the app
+            _plugin_reg['instance'] = None
             return plugin
         plugin = self._register_helper(plugin, *args, _spf=self,
                                        _plugin_name=name, **kwargs)
-        _plugin_dict['instance'] = plugin
+        _plugin_reg['instance'] = plugin
         return plugin
 
     @staticmethod
-    def _register_helper(plugin, *args, _spf=None,
-                         _plugin_name=None, _url_prefix=None, **kwargs):
+    def _register_helper(plugin, *args, _spf=None, _plugin_name=None,
+                         _url_prefix=None, **kwargs):
         error_str = "Plugin must be initialised using the " \
                     "Sanic Plugins Framework"
         assert _spf is not None, error_str

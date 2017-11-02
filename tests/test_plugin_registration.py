@@ -28,4 +28,5 @@ def test_duplicate_registration_1():
     except Exception as e:
         exc = e
     assert isinstance(exc, ValueError)
+    assert exc.args and len(exc.args) > 1 and exc.args[1] == plug1
 
