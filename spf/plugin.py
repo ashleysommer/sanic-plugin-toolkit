@@ -13,6 +13,14 @@ from spf.context import ContextDict
 
 
 def to_snake_case(name):
+    """
+    Simple helper function.
+    Changes PascalCase, camelCase, and CAPS_CASE to snake_case.
+    :param name: variable name to convert
+    :type name: str
+    :return: the name of the variable, converted to snake_case
+    :rtype: str
+    """
     s1 = to_snake_case.first_cap_re.sub(r'\1_\2', name)
     return to_snake_case.all_cap_re.sub(r'\1_\2', s1).lower()
 
@@ -33,16 +41,22 @@ class SanicPlugin(object):
     # Decorator
     def middleware(self, *args, **kwargs):
         """Decorate and register middleware
+        :param args: captures all of the positional arguments passed in
+        :type args: tuple(Any)
+        :param kwargs: captures the keyword arguments passed in
+        :type kwargs: dict(Any)
+        :return: The middleware function to use as the decorator
+        :rtype: fn
         """
         kwargs.setdefault('priority', 5)
         kwargs.setdefault('relative', None)
         kwargs.setdefault('attach_to', None)
         kwargs.setdefault('with_context', False)
         if len(args) == 1 and callable(args[0]):
-            middleware_f = args[0]
+            middle_f = args[0]
             self._middlewares.append(
-                FutureMiddleware(middleware_f, args=tuple(), kwargs=kwargs))
-            return middleware_f
+                FutureMiddleware(middle_f, args=tuple(), kwargs=kwargs))
+            return middle_f
 
         def wrapper(middleware_f):
             self._middlewares.append(
@@ -52,6 +66,12 @@ class SanicPlugin(object):
 
     def exception(self, *args, **kwargs):
         """Decorate and register an exception handler
+        :param args: captures all of the positional arguments passed in
+        :type args: tuple(Any)
+        :param kwargs: captures the keyword arguments passed in
+        :type kwargs: dict(Any)
+        :return: The exception function to use as the decorator
+        :rtype: fn
         """
         if len(args) == 1 and callable(args[0]):
             if isinstance(args[0], type) and issubclass(args[0], Exception):
@@ -70,6 +90,13 @@ class SanicPlugin(object):
     def listener(self, event, *args, **kwargs):
         """Create a listener from a decorated function.
         :param event: Event to listen to.
+        :type event: str
+        :param args: captures all of the positional arguments passed in
+        :type args: tuple(Any)
+        :param kwargs: captures the keyword arguments passed in
+        :type kwargs: dict(Any)
+        :return: The exception function to use as the listener
+        :rtype: fn
         """
         if len(args) == 1 and callable(args[0]):
             raise RuntimeError("Cannot use the @listener decorator without "
@@ -83,6 +110,13 @@ class SanicPlugin(object):
     def route(self, uri, *args, **kwargs):
         """Create a plugin route from a decorated function.
         :param uri: endpoint at which the route will be accessible.
+        :type uri: str
+        :param args: captures all of the positional arguments passed in
+        :type args: tuple(Any)
+        :param kwargs: captures the keyword arguments passed in
+        :type kwargs: dict(Any)
+        :return: The exception function to use as the decorator
+        :rtype: fn
         """
         if len(args) == 0 and callable(uri):
             raise RuntimeError("Cannot use the @route decorator without "
@@ -99,7 +133,10 @@ class SanicPlugin(object):
             return handler_f
         return wrapper
 
-    def on_registered(self):
+    def on_before_registered(self, *args, **kwargs):
+        pass
+
+    def on_registered(self, *args, **kwargs):
         pass
 
     @property
@@ -108,7 +145,7 @@ class SanicPlugin(object):
             return self._spf.get_context(self._plugin_name)
         except KeyError as k:
             raise k
-        except AttributeError as a:
+        except AttributeError:
             raise RuntimeError("Cannot use the plugin's Context before it is "
                                "registered.")
 
@@ -236,13 +273,65 @@ class SanicPluginsFramework(object):
         shared_context = self.shared_context
         self._contexts[name] = context = ContextDict(
             self, shared_context, {'shared': shared_context})
-        plugin = _plugin_register(plugin, *args, _app=app, _spf=self,
-                                  _plugin_name=name, **kwargs)
+        plugin = self._register_helper(plugin, *args, _app=app, _spf=self,
+                                       _plugin_name=name, **kwargs)
         _p_context = self._plugins_context
         _p_context[name] = _plugin_dict = _p_context.create_child_context()
         _plugin_dict['name'] = name
         _plugin_dict['instance'] = plugin
         _plugin_dict['context'] = context
+        return plugin
+
+    @staticmethod
+    def _register_helper(plugin, *args, _app=None, _spf=None,
+                         _plugin_name=None, _url_prefix=None, **kwargs):
+        error_str = "Plugin must be initialised using the " \
+                    "Sanic Plugins Framework"
+        assert _spf is not None, error_str
+        assert _app is not None, error_str
+        assert _plugin_name is not None, error_str
+        plugin.app = _app
+        plugin._spf = _spf
+        plugin._plugin_name = _plugin_name
+        plugin._url_prefix = _url_prefix
+        continue_flag = plugin.on_before_registered(*args, **kwargs)
+        if continue_flag is False:
+            return plugin
+        # this should only ever run once!
+        # replace it with the `pass` function above.
+        plugin.on_before_registered = \
+            partial(SanicPlugin.on_before_registered, plugin)
+
+        # Routes
+        for r in plugin._routes:
+            # attach the plugin name to the handler so that it can be
+            # prefixed properly in the router
+            r.handler.__blueprintname__ = plugin._plugin_name
+            # Prepend the plugin URI prefix if available
+            uri = _url_prefix + r.uri if _url_prefix else r.uri
+            plugin._spf._plugin_register_route(
+                r.handler, plugin, uri[1:] if uri.startswith('//') else uri,
+                *r.args, **r.kwargs)
+
+        # Middleware
+        for m in plugin._middlewares:
+            plugin._spf._plugin_register_middleware(
+                m.middleware, plugin, *m.args, **m.kwargs)
+
+        # Exceptions
+        for e in plugin._exceptions:
+            plugin._spf._plugin_register_exception(
+                e.handler, plugin, *e.exceptions, **e.kwargs)
+
+        # Listeners
+        for event, listeners in plugin._listeners.items():
+            for listener in listeners:
+                plugin._spf._plugin_register_listener(event, listener, plugin)
+
+        # this should only ever run once!
+        plugin.on_registered(*args, **kwargs)
+        # replace it with the `pass` function above.
+        plugin.on_registered = partial(SanicPlugin.on_registered, plugin)
         return plugin
 
     def _plugin_register_route(self, handler, plugin, uri, *args,
@@ -498,44 +587,3 @@ class SanicPluginsFramework(object):
         assert len(kwargs) < 1, \
             "Unexpected keyword arguments passed to the SanicPluginsFramework."
         super(SanicPluginsFramework, self).__init__(*args, **kwargs)
-
-
-def _plugin_register(plugin, *args, _app=None, _spf=None, _plugin_name=None,
-                     _url_prefix=None, **kwargs):
-    error_str = "Plugin must be initialised using the Sanic Plugins Framework"
-    assert _spf is not None, error_str
-    assert _app is not None, error_str
-    assert _plugin_name is not None, error_str
-    plugin.app = _app
-    plugin._spf = _spf
-    plugin._plugin_name = _plugin_name
-    plugin._url_prefix = _url_prefix
-    # Routes
-    for r in plugin._routes:
-        # attach the plugin name to the handler so that it can be
-        # prefixed properly in the router
-        r.handler.__blueprintname__ = plugin._plugin_name
-        # Prepend the plugin URI prefix if available
-        uri = _url_prefix + r.uri if _url_prefix else r.uri
-        plugin._spf._plugin_register_route(
-            r.handler, plugin, uri[1:] if uri.startswith('//') else uri,
-            *r.args, **r.kwargs)
-
-    # Middleware
-    for m in plugin._middlewares:
-        plugin._spf._plugin_register_middleware(
-            m.middleware, plugin, *m.args, **m.kwargs)
-
-    # Exceptions
-    for e in plugin._exceptions:
-        plugin._spf._plugin_register_exception(
-            e.handler, plugin, *e.exceptions, **e.kwargs)
-
-    # Listeners
-    for event, listeners in plugin._listeners.items():
-        for listener in listeners:
-            plugin._spf._plugin_register_listener(event, listener, plugin)
-    plugin.on_registered()  # this should only ever run once!
-    # replace it with the `pass` function above.
-    plugin.on_registered = partial(SanicPlugin.on_registered, plugin)
-    return plugin

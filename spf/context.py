@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+"""
+This is the specialised dictionary that is used by Sanic Plugins Framework
+to manage Context objects. It can be hierarchical, and it searches its
+parents if it cannot find an item in its own dictionary. It can create its
+own children.
+"""
+
+
 class ContextDict(dict):
     __slots__ = ('_spf', '_parent_context', '__weakref__')
 
@@ -19,7 +27,7 @@ class ContextDict(dict):
             while parent:
                 try:
                     return super(ContextDict, parent).__getitem__(item)
-                except KeyError as e2:
+                except KeyError:
                     parents_searched.append(parent)
                     # noinspection PyProtectedMember
                     next_parent = parent._parent_context

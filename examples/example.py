@@ -7,7 +7,7 @@ from examples.my_plugin import MyPlugin
 from logging import DEBUG
 
 app = Sanic(__name__)
-mp = MyPlugin(app)
+# mp = MyPlugin(app)  //Legacy registration example
 spf = SanicPluginsFramework(app)
 my_plugin = spf.register_plugin(my_plugin)
 
@@ -15,6 +15,7 @@ my_plugin = spf.register_plugin(my_plugin)
 @app.route('/')
 def index(request):
     return text("hello world")
+
 
 if __name__ == "__main__":
     app.run("127.0.0.1", port=8098, debug=True)

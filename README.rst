@@ -127,11 +127,27 @@ The Application developer can use your plugin in their code like this:
     from sanic import Sanic
     from spf import SanicPluginFramework
     from sanic.response import text
-    from my_plugin import my_plugin
+    import my_plugin
 
     app = Sanic(__name__)
     spf = SanicPluginFramework(app)
     spf.register_plugin(my_plugin)
+
+    # ... rest of user app here
+
+Or if the developer prefers to do it the old way, (the Flask way), they can still do it like this:
+
+.. code:: python
+
+    # Source: app.py
+    from sanic import Sanic
+    from sanic.response import text
+    from my_plugin import MyPlugin
+
+    app = Sanic(__name__)
+    # this magically returns your previously initialized instance
+    # from your plugin module, if it is named `my_plugin` or `instance`.
+    plugin = MyPlugin(app)
 
     # ... rest of user app here
 
