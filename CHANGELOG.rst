@@ -1,6 +1,14 @@
 Sanic Plugins Framework
 =======================
 
+0.4.1.dev20171103
+-----------------
+Ensure each SPF registers only one 'before_server_start' listener, no matter how many time the SPF is used, and
+how many plugins are registered on the SPF.
+
+Added a test to ensure logging works, when got the function from the context object.
+
+
 0.4.0.dev20171103
 -----------------
 Some big architecture changes.
@@ -20,7 +28,6 @@ This _should_ be enough to get Sanic-Cors ported over to SPF.
 Added some tests.
 
 Fixed some tests.
-
 
 
 0.3.3.dev20171102

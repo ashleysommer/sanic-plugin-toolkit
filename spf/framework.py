@@ -423,6 +423,7 @@ class SanicPluginsFramework(object):
         # monkey patch the app!
         app._run_request_middleware = self._run_request_middleware
         app._run_response_middleware = self._run_response_middleware
+        app.listener('before_server_start')(self._on_before_server_start)
         app.config['__SPF_INSTANCE'] = self
 
     def _patch_blueprint(self, bp):
@@ -497,6 +498,7 @@ class SanicPluginsFramework(object):
             orig_register(app, options)
         bp.register = update_wrapper(partial(bp_register, bp), orig_register)
         setattr(bp, '__SPF_INSTANCE', self)
+        bp.listener('before_server_start')(self._on_before_server_start)
 
     def __new__(cls, app, *args, **kwargs):
         assert app, "SPF must be given a valid Sanic App to work with."
@@ -547,7 +549,6 @@ class SanicPluginsFramework(object):
             args.pop(0)  # remove 'app' arg
         assert self._app and self._contexts,\
             "Sanic Plugin Framework as not initialized correctly."
-        self._app.listener('before_server_start')(self._on_before_server_start)
         assert len(args) < 1, \
             "Unexpected arguments passed to the Sanic Plugins Framework."
         assert len(kwargs) < 1, \
