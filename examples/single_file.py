@@ -6,13 +6,12 @@ from logging import DEBUG
 
 
 class MyPlugin(SanicPlugin):
-    def on_registered(self):
-        c = self.context
-        shared = c.shared
+    def on_registered(self, context, *args, **kwargs):
+        shared = context.shared
         shared.hello_shared = "test2"
-        c.hello1 = "test1"
-        _a = c.hello1
-        _b = c.hello_shared
+        context.hello1 = "test1"
+        _a = context.hello1
+        _b = context.hello_shared
 
     def __init__(self, *args, **kwargs):
         super(MyPlugin, self).__init__(*args, **kwargs)
@@ -43,12 +42,12 @@ def mw3(request, response, context):
 
 @instance.middleware(priority=2, with_context=True)
 def mw4(request, context):
+    log = context.log
     print(context)
-    my_plugin.log(DEBUG, "Hello Middleware")
+    log(DEBUG, "Hello Middleware")
 
 @instance.route('/test_plugin', with_context=False)
 def t1(request):
-    c = my_plugin.context
     return text('from plugin!')
 
 
@@ -57,8 +56,10 @@ def t1(request):
 app = Sanic(__name__)
 mp = MyPlugin(app)
 spf = SanicPluginsFramework(app)
-my_plugin = spf.register_plugin(mp)
-
+try:
+    my_plugin = spf.register_plugin(mp)
+except ValueError as ve:
+    my_plugin = ve.args[1]
 
 @app.route('/')
 def index(request):

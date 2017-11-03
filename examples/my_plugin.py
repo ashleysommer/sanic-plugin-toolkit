@@ -3,19 +3,17 @@ from sanic.response import text
 from logging import DEBUG
 
 class MyPlugin(SanicPlugin):
-    def on_before_registered(self, *args, **kwargs):
-        c = self.context
-        shared = c.shared
+    def on_before_registered(self, context, *args, **kwargs):
+        shared = context.shared
         print("Before Registered")
 
-    def on_registered(self, *args, **kwargs):
-        c = self.context
-        shared = c.shared
+    def on_registered(self, context, *args, **kwargs):
+        shared = context.shared
         print("After Registered")
         shared.hello_shared = "test2"
-        c.hello1 = "test1"
-        _a = c.hello1
-        _b = c.hello_shared
+        context.hello1 = "test1"
+        _a = context.hello1
+        _b = context.hello_shared
 
     def __init__(self, *args, **kwargs):
         super(MyPlugin, self).__init__(*args, **kwargs)
@@ -47,12 +45,13 @@ def mw3(request, response, context):
 @my_plugin.middleware(priority=2, with_context=True)
 def mw4(request, context):
     print(context)
+    log = context.log
     # logging example!
-    my_plugin.log(DEBUG, "Hello Middleware")
+    log(DEBUG, "Hello Middleware")
 
-@my_plugin.route('/test_plugin', with_context=False)
-def t1(request):
-    c = my_plugin.context
+@my_plugin.route('/test_plugin', with_context=True)
+def t1(request, context):
+    print(context)
     return text('from plugin!')
 
 def decorate(app, *args, **kwargs):

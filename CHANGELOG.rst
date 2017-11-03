@@ -1,6 +1,28 @@
 Sanic Plugins Framework
 =======================
 
+0.4.0.dev20171103
+-----------------
+Some big architecture changes.
+
+Split plugin and framework into separate files.
+
+We no longer assume the plugin is going to be registered onto only one app/blueprint.
+
+The plugin can be registered many times, onto many different SPF instances, on different apps.
+
+This means we can no longer easily get a known context object directly from the plugin instance, now the context object
+must be provided by the SPF that is registered on the given app. We also need to pass around the context object a bit
+more than we did before. While this change makes the whole framework more complicated, it now actually feels cleaner.
+
+This _should_ be enough to get Sanic-Cors ported over to SPF.
+
+Added some tests.
+
+Fixed some tests.
+
+
+
 0.3.3.dev20171102
 -----------------
 Fixed bug in getting the plugin context object, when using the view/route decorator feature.

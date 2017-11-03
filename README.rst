@@ -74,11 +74,10 @@ A simple plugin written using the Sanic Plugins Framework will look like this:
             # do pre-registration plugin init here.
             # Note, context objects are not accessible here.
 
-        def on_registered(self):
+        def on_registered(self, context, *args, **kwargs):
             # do post-registration plugin init here
             # We have access to our context and the shared context now.
-            c = self.context
-            c.my_private_var = "Private variable"
+            context.my_private_var = "Private variable"
             shared = c.shared
             shared.my_shared_var = "Shared variable"
 
@@ -112,7 +111,7 @@ A simple plugin written using the Sanic Plugins Framework will look like this:
         # Do response middleware here
         return response
 
-    #Add your own routes here. You can even choose to have your context passed in to the route.
+    #Add your plugin routes here. You can even choose to have your context passed in to the route.
     @my_plugin.route('/test_plugin', with_context=True)
     def t1(request, context):
         words = context['test1']

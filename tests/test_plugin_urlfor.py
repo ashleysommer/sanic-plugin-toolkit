@@ -13,9 +13,11 @@ instance = test_plugin = TestPlugin()
 def t1(request):
     return text("t1")
 
-@test_plugin.route('/t2')
-def t2(request):
-    t1 = test_plugin.url_for('t1')
+@test_plugin.route('/t2', with_context=True)
+def t2(request, context):
+    app = context.app
+    url_for = context.url_for
+    t1 = url_for('t1')
     return redirect(t1)
 
 def test_plugin_urlfor_1():

@@ -4,7 +4,7 @@ from examples import my_plugin
 
 app = Sanic(__name__)
 
-@app.route('/')
+@app.route('/', methods={'GET','OPTIONS'})
 @my_plugin.decorate(app)
 def index(request, context):
     return text("hello world")
