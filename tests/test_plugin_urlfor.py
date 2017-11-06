@@ -23,7 +23,7 @@ def t2(request, context):
 def test_plugin_urlfor_1():
     app = Sanic('test_plugin_urlfor_1')
     spf = SanicPluginsFramework(app)
-    plugin = spf.register_plugin(test_plugin)
+    spf.register_plugin(test_plugin)
     client = app.test_client
     resp = client.get('/t2')
     assert resp[1].text == 't1'

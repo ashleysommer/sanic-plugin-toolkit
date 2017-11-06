@@ -13,6 +13,7 @@ FutureRoute = namedtuple('Route', ['handler', 'uri', 'args', 'kwargs'])
 FutureException = namedtuple('Exception', ['handler', 'exceptions', 'kwargs'])
 PluginRegistration = namedtuple('Registration',
                                 ['spf', 'plugin_name', 'url_prefix'])
+PluginAssociated = namedtuple('Associated', ['plugin', 'reg'])
 
 
 class SanicPlugin(object):
@@ -118,7 +119,7 @@ class SanicPlugin(object):
     def on_before_registered(self, context, *args, **kwargs):
         pass
 
-    def on_registered(self, context, *args, **kwargs):
+    def on_registered(self, context, reg, *args, **kwargs):
         pass
 
     def find_plugin_registration(self, spf):
@@ -213,12 +214,13 @@ class SanicPlugin(object):
         from spf.framework import SanicPluginsFramework
         spf = SanicPluginsFramework(app)  # get the singleton from the app
         try:
-            plugin = spf.register_plugin(cls, skip_reg=True)
+            assoc = spf.register_plugin(cls, skip_reg=True)
         except ValueError as e:
             # this is normal, if this plugin has been registered previously
             assert e.args and len(e.args) > 1
-            plugin = e.args[1]
-        inst = spf.get_plugin(plugin)
+            assoc = e.args[1]
+        (plugin, reg) = assoc
+        inst = spf.get_plugin(plugin)  # plugin may not actually be registered
         regd = True if inst else None
         if regd is True:
             run_middleware = False
@@ -345,9 +347,10 @@ class SanicPlugin(object):
             if mod_name.startswith("__"):
                 # In this case, we cannot use the module to register the
                 # plugin. Try to use the class method.
-                return spf.register_plugin(cls, *args, **kwargs)
+                assoc = spf.register_plugin(cls, *args, **kwargs)
             else:
-                return spf.register_plugin(mod, *args, **kwargs)
+                assoc = spf.register_plugin(mod, *args, **kwargs)
+            return assoc
         self = super(SanicPlugin, cls).__new__(cls)
         try:
             self._initialized  # initialized may be True or Unknown

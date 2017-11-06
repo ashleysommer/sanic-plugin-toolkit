@@ -1,6 +1,13 @@
 Sanic Plugins Framework
 =======================
 
+Unreleased
+-----------------
+Added a new namedtuple that represents a plugin registration association.
+It is simply a tuple of the plugin instance, and a matching PluginRegistration.
+This is needed in the Sanic-Restplus port.
+
+
 0.4.1.dev20171103
 -----------------
 Ensure each SPF registers only one 'before_server_start' listener, no matter how many time the SPF is used, and

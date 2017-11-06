@@ -8,7 +8,7 @@ app = Sanic(__name__)
 # mp = MyPlugin(app)  //Legacy registration example
 spf = SanicPluginsFramework(my_blueprint.api_v1)
 
-my_plugin = spf.register_plugin(my_plugin)
+spf.register_plugin(my_plugin)
 
 app.blueprint(my_blueprint.api_v1)
 

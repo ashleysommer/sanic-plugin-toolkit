@@ -7,7 +7,7 @@ class MyPlugin(SanicPlugin):
         shared = context.shared
         print("Before Registered")
 
-    def on_registered(self, context, *args, **kwargs):
+    def on_registered(self, context, reg, *args, **kwargs):
         shared = context.shared
         print("After Registered")
         shared.hello_shared = "test2"

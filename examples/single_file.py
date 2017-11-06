@@ -6,7 +6,7 @@ from logging import DEBUG
 
 
 class MyPlugin(SanicPlugin):
-    def on_registered(self, context, *args, **kwargs):
+    def on_registered(self, context, reg, *args, **kwargs):
         shared = context.shared
         shared.hello_shared = "test2"
         context.hello1 = "test1"
@@ -51,15 +51,13 @@ def t1(request):
     return text('from plugin!')
 
 
-
-
 app = Sanic(__name__)
 mp = MyPlugin(app)
 spf = SanicPluginsFramework(app)
 try:
-    my_plugin = spf.register_plugin(mp)
+    assoc_reg = spf.register_plugin(mp)  # already registered! (line 55)
 except ValueError as ve:
-    my_plugin = ve.args[1]
+    assoc_reg = ve.args[1]
 
 @app.route('/')
 def index(request):

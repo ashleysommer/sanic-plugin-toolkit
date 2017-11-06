@@ -8,7 +8,7 @@ import re
 from sanic import Sanic, Blueprint
 from uuid import uuid1
 from spf.context import ContextDict
-from spf.plugin import SanicPlugin, PluginRegistration
+from spf.plugin import SanicPlugin, PluginRegistration, PluginAssociated
 
 
 def to_snake_case(name):
@@ -120,9 +120,11 @@ class SanicPluginsFramework(object):
         assert isinstance(name, str), \
             "Plugin name must be a python unicode string!"
 
-        if name in self._plugin_names:
+        if name in self._plugin_names:  # we're already registered on this SPF
+            reg = plugin.find_plugin_registration(self)
+            assoc = PluginAssociated(plugin, reg)
             raise ValueError(
-                "Plugin {:s} is already registered!".format(name), plugin)
+                "Plugin {:s} is already registered!".format(name), assoc)
         if plugin.is_registered_on_framework(self):
             raise RuntimeError("Plugin already shows it is registered to this "
                                "spf.")
@@ -144,14 +146,16 @@ class SanicPluginsFramework(object):
             plugin.registrations.add(dummy_reg)
             # This indicates the plugin is not registered on the app
             _plugin_reg['instance'] = None
-            return plugin
+            _plugin_reg['reg'] = None
+            return PluginAssociated(plugin, dummy_reg)
         if _plugin_reg.get('instance', False):
             raise RuntimeError("The plugin we are trying to register already "
                                "has a known instance!")
-        plugin = self._register_helper(plugin, context, *args, _spf=self,
-                                       _plugin_name=name, **kwargs)
+        reg = self._register_helper(plugin, context, *args, _spf=self,
+                                    _plugin_name=name, **kwargs)
         _plugin_reg['instance'] = plugin
-        return plugin
+        _plugin_reg['reg'] = reg
+        return PluginAssociated(plugin, reg)
 
     @staticmethod
     def _register_helper(plugin, context, *args, _spf=None, _plugin_name=None,
@@ -205,9 +209,9 @@ class SanicPluginsFramework(object):
 
         # # this should only ever run once!
         plugin.registrations.add(reg)
-        plugin.on_registered(context, *args, **kwargs)
+        plugin.on_registered(context, reg, *args, **kwargs)
 
-        return plugin
+        return reg
 
     def _plugin_register_route(self, handler, plugin, context, uri, *args,
                                with_context=False, **kwargs):

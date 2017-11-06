@@ -74,7 +74,7 @@ A simple plugin written using the Sanic Plugins Framework will look like this:
             # do pre-registration plugin init here.
             # Note, context objects are not accessible here.
 
-        def on_registered(self, context, *args, **kwargs):
+        def on_registered(self, context, reg, *args, **kwargs):
             # do post-registration plugin init here
             # We have access to our context and the shared context now.
             context.my_private_var = "Private variable"
@@ -146,7 +146,7 @@ Or if the developer prefers to do it the old way, (the Flask way), they can stil
     app = Sanic(__name__)
     # this magically returns your previously initialized instance
     # from your plugin module, if it is named `my_plugin` or `instance`.
-    plugin = MyPlugin(app)
+    reg = MyPlugin(app)
 
     # ... rest of user app here
 
