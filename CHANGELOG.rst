@@ -3,9 +3,12 @@ Sanic Plugins Framework
 
 Unreleased
 -----------------
+
 Added a new namedtuple that represents a plugin registration association.
 It is simply a tuple of the plugin instance, and a matching PluginRegistration.
 This is needed in the Sanic-Restplus port.
+
+Allow plugins to choose their own PluginAssociated class.
 
 
 0.4.1.dev20171103

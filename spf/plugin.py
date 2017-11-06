@@ -21,6 +21,8 @@ class SanicPlugin(object):
                  '_middlewares', '_exceptions', '_listeners', '_initialized',
                  '__weakref__')
 
+    AssociatedTuple = PluginAssociated
+
     # Decorator
     def middleware(self, *args, **kwargs):
         """Decorate and register middleware

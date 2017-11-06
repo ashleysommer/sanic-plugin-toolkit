@@ -8,7 +8,7 @@ import re
 from sanic import Sanic, Blueprint
 from uuid import uuid1
 from spf.context import ContextDict
-from spf.plugin import SanicPlugin, PluginRegistration, PluginAssociated
+from spf.plugin import SanicPlugin, PluginRegistration
 
 
 def to_snake_case(name):
@@ -120,9 +120,11 @@ class SanicPluginsFramework(object):
         assert isinstance(name, str), \
             "Plugin name must be a python unicode string!"
 
+        associated_tuple = plugin.AssociatedTuple
+
         if name in self._plugin_names:  # we're already registered on this SPF
             reg = plugin.find_plugin_registration(self)
-            assoc = PluginAssociated(plugin, reg)
+            assoc = associated_tuple(plugin, reg)
             raise ValueError(
                 "Plugin {:s} is already registered!".format(name), assoc)
         if plugin.is_registered_on_framework(self):
@@ -147,7 +149,7 @@ class SanicPluginsFramework(object):
             # This indicates the plugin is not registered on the app
             _plugin_reg['instance'] = None
             _plugin_reg['reg'] = None
-            return PluginAssociated(plugin, dummy_reg)
+            return associated_tuple(plugin, dummy_reg)
         if _plugin_reg.get('instance', False):
             raise RuntimeError("The plugin we are trying to register already "
                                "has a known instance!")
@@ -155,7 +157,7 @@ class SanicPluginsFramework(object):
                                     _plugin_name=name, **kwargs)
         _plugin_reg['instance'] = plugin
         _plugin_reg['reg'] = reg
-        return PluginAssociated(plugin, reg)
+        return associated_tuple(plugin, reg)
 
     @staticmethod
     def _register_helper(plugin, context, *args, _spf=None, _plugin_name=None,
