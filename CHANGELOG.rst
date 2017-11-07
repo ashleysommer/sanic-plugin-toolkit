@@ -1,6 +1,11 @@
 Sanic Plugins Framework
 =======================
 
+0.4.4.dev20171107
+-----------------
+Bump to version 0.4.4 because 0.4.3 broke, and PyPI wouldn't let me re-upload it with the same version.
+
+
 0.4.3.dev20171107
 -----------------
 Fixed ContextDict to no longer be derived from `dict`, while at the same time act more like a dictionary.
