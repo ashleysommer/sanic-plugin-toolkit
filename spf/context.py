@@ -7,26 +7,35 @@ own children.
 """
 
 
-class ContextDict(dict):
-    __slots__ = ('_spf', '_parent_context', '__weakref__')
+class ContextDict(object):
+    __slots__ = ('_spf', '_parent_context', '_dict', '__weakref__')
+
+    def _inner(self):
+        return object.__getattribute__(self, '_dict')
 
     def __repr__(self):
-        _dict_repr = super(ContextDict, self).__repr__()
+        _dict_repr = repr(self._inner())
         return "ContextDict({:s})".format(_dict_repr)
 
     def __str__(self):
-        _dict_str = super(ContextDict, self).__str__()
+        _dict_str = repr(self._inner())
         return "ContextDict({:s})".format(_dict_str)
+
+    def __len__(self):
+        return len(self._inner())
+
+    def __setitem__(self, key, value):
+        return self._inner().__setitem__(key, value)
 
     def __getitem__(self, item):
         try:
-            return super(ContextDict, self).__getitem__(item)
+            return self._inner().__getitem__(item)
         except KeyError as e1:
             parents_searched = [self, ]
             parent = self._parent_context
             while parent:
                 try:
-                    return super(ContextDict, parent).__getitem__(item)
+                    return parent._inner().__getitem__(item)
                 except KeyError:
                     parents_searched.append(parent)
                     # noinspection PyProtectedMember
@@ -36,24 +45,59 @@ class ContextDict(dict):
                     parent = next_parent
             raise e1
 
+    def __delitem__(self, key):
+        self._inner().__delitem__(key)
+
+    def __delslice__(self, i, j):
+        self._inner().__delslice__(i, j)
+
     def __getattr__(self, item):
+        if item in self.__slots__:
+            return object.__getattribute__(self, item)
         try:
             return self.__getitem__(item)
         except KeyError as e:
             raise AttributeError(*e.args)
 
     def __setattr__(self, key, value):
+        if key in self.__slots__:
+            return object.__setattr__(self, key, value)
         try:
             return self.__setitem__(key, value)
         except Exception as e:
             # what exceptions can occur on setting an item?
             raise e
 
+    def __contains__(self, item):
+        return self._inner().__contains__(item)
+
+    def get(self, key, default=None):
+        try:
+            return self.__getattr__(key)
+        except (AttributeError, KeyError):
+            return default
+
+    def set(self, key, value):
+        try:
+            return self.__setattr__(key, value)
+        except Exception as e:
+            raise e
+
+    def items(self):
+        return self._inner().items()
+
+    def keys(self):
+        return self._inner().keys()
+
+    def values(self):
+        return self._inner().values()
+
     def create_child_context(self, *args, **kwargs):
         return ContextDict(self._spf, self, *args, **kwargs)
 
     def __new__(cls, spf, parent, *args, **kwargs):
-        self = super(ContextDict, cls).__new__(cls, *args, **kwargs)
+        self = super(ContextDict, cls).__new__(cls)
+        self._dict = dict(*args, **kwargs)
         if parent is not None:
             assert isinstance(parent, ContextDict),\
                 "Parent context must be a valid initialised ContextDict"
@@ -67,4 +111,4 @@ class ContextDict(dict):
         args = list(args)
         args.pop(0)  # remove spf
         args.pop(0)  # remove parent
-        super(ContextDict, self).__init__(*args, **kwargs)
+        super(ContextDict, self).__init__()

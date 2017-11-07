@@ -1,6 +1,14 @@
 Sanic Plugins Framework
 =======================
 
+0.4.3.dev20171107
+-----------------
+Fixed ContextDict to no longer be derived from `dict`, while at the same time act more like a dictionary.
+
+Added ability for the request context to hold more than one request at once. Use `id(request)` to get the correct
+request context from the request-specific context dict.
+
+
 0.4.2.dev20171106
 -----------------
 Added a new namedtuple that represents a plugin registration association.
