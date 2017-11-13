@@ -180,7 +180,7 @@ class SanicPlugin(object):
 
     def log(self, spf, level, message, *args, **kwargs):
         reg = self.find_plugin_registration(spf)
-        context = self.get_app_from_spf_context(reg)
+        context = self.get_context_from_spf(reg)
         return context.log(level, message, *args, reg=self, **kwargs)
 
     def debug(self, message, *args, **kwargs):

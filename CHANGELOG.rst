@@ -1,6 +1,11 @@
 Sanic Plugins Framework
 =======================
 
+0.4.5.dev20171113
+-----------------
+Fixed error in plugin.log helper. It now calls the correct context .log function.
+
+
 0.4.4.dev20171107
 -----------------
 Bump to version 0.4.4 because 0.4.3 broke, and PyPI wouldn't let me re-upload it with the same version.

@@ -36,7 +36,7 @@ class SanicPluginsFramework(object):
 
     def log(self, level, message, reg=None, *args, **kwargs):
         if reg is not None:
-            (s, n, u) = reg
+            (_, n, _) = reg
             message = "{:s}: {:s}".format(str(n), str(message))
         return self._logger.log(level, message, *args, **kwargs)
 
@@ -53,7 +53,7 @@ class SanicPluginsFramework(object):
 
     def get_plugin(self, plugin):
         reg = plugin.find_plugin_registration(self)
-        (spf, name, u) = reg
+        (_, name, _) = reg
         _p_context = self._plugins_context
         try:
             _plugin_reg = _p_context[name]
