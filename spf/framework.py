@@ -497,7 +497,7 @@ class SanicPluginsFramework(object):
                     if _response:
                         response = _response
                         break
-            _spf.delete_temporary_request_context()
+            _spf.delete_temporary_request_context(request)
 
         orig_register = bp.register
 
