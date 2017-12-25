@@ -1,6 +1,13 @@
 Sanic Plugins Framework
 =======================
 
+0.5.0.dev20171225
+-----------------
+Merry Christmas!
+Sanic version 0.7.0 has been out for a couple of weeks now. It is now our minimum required version.
+Fixed a bug related to deleting shared context when app is a Blueprint. Thanks @huangxinping!
+
+
 0.4.5.dev20171113
 -----------------
 Fixed error in plugin.log helper. It now calls the correct context .log function.

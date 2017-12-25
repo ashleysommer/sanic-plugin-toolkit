@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys
 from functools import partial, update_wrapper
 from inspect import isawaitable, ismodule
 from queue import PriorityQueue
@@ -9,6 +10,10 @@ from sanic import Sanic, Blueprint
 from uuid import uuid1
 from spf.context import ContextDict
 from spf.plugin import SanicPlugin, PluginRegistration
+
+module = sys.modules[__name__]
+module.consts = CONSTS = dict()
+CONSTS["APP_CONFIG_KEY"] = APP_CONFIG_KEY = "__SPF_INSTANCE"
 
 
 def to_snake_case(name):
@@ -447,7 +452,7 @@ class SanicPluginsFramework(object):
         app._run_request_middleware = self._run_request_middleware
         app._run_response_middleware = self._run_response_middleware
         app.listener('before_server_start')(self._on_before_server_start)
-        app.config['__SPF_INSTANCE'] = self
+        app.config[APP_CONFIG_KEY] = self
 
     def _patch_blueprint(self, bp):
         # monkey patch the blueprint!
@@ -520,7 +525,7 @@ class SanicPluginsFramework(object):
 
             orig_register(app, options)
         bp.register = update_wrapper(partial(bp_register, bp), orig_register)
-        setattr(bp, '__SPF_INSTANCE', self)
+        setattr(bp, APP_CONFIG_KEY, self)
         bp.listener('before_server_start')(self._on_before_server_start)
 
     def __new__(cls, app, *args, **kwargs):
@@ -531,14 +536,14 @@ class SanicPluginsFramework(object):
         # An app _must_ only have one spf instance associated with it.
         # If there is already one registered on the app, return that one.
         try:
-            instance = app.config['__SPF_INSTANCE']
+            instance = app.config[APP_CONFIG_KEY]
             assert isinstance(instance, cls),\
                 "This app is already registered to a different type of " \
                 "Sanic Plugins Framework!"
             return instance
         except AttributeError:  # app must then be a blueprint
             try:
-                instance = getattr(app, '__SPF_INSTANCE')
+                instance = getattr(app, APP_CONFIG_KEY)
                 assert isinstance(instance, cls),\
                     "This Blueprint is already registered to a different " \
                     "type of Sanic Plugins Framework!"

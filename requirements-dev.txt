@@ -5,4 +5,4 @@ tox
 ujson
 uvloop
 aiohttp
-sanic>=0.6.0
+sanic>=0.7.0

@@ -105,13 +105,12 @@ class SanicPlugin(object):
         """
         if len(args) == 0 and callable(uri):
             raise RuntimeError("Cannot use the @route decorator without "
-                               "arguments")
+                               "arguments.")
         kwargs.setdefault('methods', frozenset({'GET'}))
         kwargs.setdefault('host', None)
         kwargs.setdefault('strict_slashes', False)
         kwargs.setdefault('stream', False)
-        # TODO: sanic 0.6.1 (0.7?) will have 'name' on a route
-        # #kwargs.setdefault('name', None)
+        kwargs.setdefault('name', None)
 
         def wrapper(handler_f):
             self._routes.append(FutureRoute(handler_f, uri, args, kwargs))
@@ -208,6 +207,10 @@ class SanicPlugin(object):
         :type app: Sanic | Blueprint
         :param args:
         :type args: tuple(Any)
+        :param run_middleware:
+        :type run_middleware: bool
+        :param with_context:
+        :type with_context: bool
         :param kwargs:
         :param kwargs: dict(Any)
         :return: the decorated route/view
@@ -225,6 +228,8 @@ class SanicPlugin(object):
         inst = spf.get_plugin(plugin)  # plugin may not actually be registered
         regd = True if inst else None
         if regd is True:
+            # middleware will be run on this route anyway, because the plugin
+            # is registered on the app. Turn it off on the route-level.
             run_middleware = False
         req_middleware = PriorityQueue()
         resp_middleware = PriorityQueue()
@@ -234,23 +239,23 @@ class SanicPlugin(object):
                 attach_to = m.kwargs.pop('attach_to', 'request')
                 priority = m.kwargs.pop('priority', 5)
                 with_context = m.kwargs.pop('with_context', False)
-                handler = m.middleware
+                mw_handle_fn = m.middleware
                 if attach_to == 'response':
                     relative = m.kwargs.pop('relative', 'post')
                     if relative == "pre":
-                        mw = (0, 0 - priority, 0 - i, handler,
+                        mw = (0, 0 - priority, 0 - i, mw_handle_fn,
                               with_context, m.args, m.kwargs)
                     else:  # relative = "post"
-                        mw = (1, 0 - priority, 0 - i, handler,
+                        mw = (1, 0 - priority, 0 - i, mw_handle_fn,
                               with_context, m.args, m.kwargs)
                     resp_middleware.put_nowait(mw)
                 else:  # attach_to = "request"
                     relative = m.kwargs.pop('relative', 'pre')
                     if relative == "post":
-                        mw = (1, priority, i, m.middleware, with_context,
+                        mw = (1, priority, i, mw_handle_fn, with_context,
                               m.args, m.kwargs)
                     else:  # relative = "pre"
-                        mw = (0, priority, i, m.middleware, with_context,
+                        mw = (0, priority, i, mw_handle_fn, with_context,
                               m.args, m.kwargs)
                     req_middleware.put_nowait(mw)
 
