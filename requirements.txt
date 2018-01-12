@@ -1,3 +1,1 @@
-ujson
-uvloop
 sanic>=0.7.0
