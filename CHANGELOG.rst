@@ -4,6 +4,7 @@ Sanic Plugins Framework
 0.5.2.dev20180201
 -----------------
 Changed tox runner os env from `precise` to `trusty`.
+Pin pytest to 3.3.2 due to a major release bug in 3.4.0.
 
 
 0.5.1.dev20180201
