@@ -2,5 +2,5 @@
 from .framework import SanicPluginsFramework
 from .plugin import SanicPlugin
 
-__version__ = '0.5.0.dev20171225'
+__version__ = '0.5.1.dev20180201'
 __all__ = ["SanicPlugin", "SanicPluginsFramework", "__version__"]

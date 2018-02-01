@@ -2,7 +2,5 @@ coverage
 flake8
 pytest
 tox
-ujson
-uvloop
 aiohttp
 sanic>=0.7.0

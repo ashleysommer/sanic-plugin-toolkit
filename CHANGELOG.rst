@@ -1,6 +1,14 @@
 Sanic Plugins Framework
 =======================
 
+0.5.1.dev20180201
+-----------------
+Removed uvloop and ujson from requirements. These break on Windows.
+Sanic requires these, but deals with the incompatibility on windows itself.
+Also ensure requirements.txt is included in the wheel package.
+Added python 3.7 to supported python versions.
+
+
 0.5.0.dev20171225
 -----------------
 Merry Christmas!
