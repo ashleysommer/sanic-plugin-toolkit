@@ -1,6 +1,6 @@
 coverage
 flake8
-pytest==3.3.3
+pytest==3.3.2
 tox
 aiohttp
 sanic>=0.7.0
