@@ -10,6 +10,8 @@ from sanic import Sanic, Blueprint
 
 FutureMiddleware = namedtuple('Middleware', ['middleware', 'args', 'kwargs'])
 FutureRoute = namedtuple('Route', ['handler', 'uri', 'args', 'kwargs'])
+FutureWebsocket = namedtuple('Websocket', ['handler', 'uri', 'args', 'kwargs'])
+FutureStatic = namedtuple('Static', ['uri', 'file_or_dir', 'args', 'kwargs'])
 FutureException = namedtuple('Exception', ['handler', 'exceptions', 'kwargs'])
 PluginRegistration = namedtuple('Registration',
                                 ['spf', 'plugin_name', 'url_prefix'])
@@ -17,7 +19,7 @@ PluginAssociated = namedtuple('Associated', ['plugin', 'reg'])
 
 
 class SanicPlugin(object):
-    __slots__ = ('registrations', '_routes',
+    __slots__ = ('registrations', '_routes', '_ws', '_static',
                  '_middlewares', '_exceptions', '_listeners', '_initialized',
                  '__weakref__')
 
@@ -116,6 +118,50 @@ class SanicPlugin(object):
             self._routes.append(FutureRoute(handler_f, uri, args, kwargs))
             return handler_f
         return wrapper
+
+    def websocket(self, uri, *args, **kwargs):
+        """Create a websocket route from a decorated function
+        :param uri: endpoint at which the socket endpoint will be accessible.
+        :type uri: str
+        :param args: captures all of the positional arguments passed in
+        :type args: tuple(Any)
+        :param kwargs: captures the keyword arguments passed in
+        :type kwargs: dict(Any)
+        :return: The exception function to use as the decorator
+        :rtype: fn
+        """
+
+        kwargs.setdefault('host', None)
+        kwargs.setdefault('strict_slashes', None)
+        kwargs.setdefault('subprotocols', None)
+        kwargs.setdefault('name', None)
+
+        def wrapper(handler_f):
+            self._ws.append(FutureWebsocket(handler_f, uri, args, kwargs))
+            return handler_f
+        return wrapper
+
+    def static(self, uri, file_or_directory, *args, **kwargs):
+        """Create a websocket route from a decorated function
+        :param uri: endpoint at which the socket endpoint will be accessible.
+        :type uri: str
+        :param args: captures all of the positional arguments passed in
+        :type args: tuple(Any)
+        :param kwargs: captures the keyword arguments passed in
+        :type kwargs: dict(Any)
+        :return: The exception function to use as the decorator
+        :rtype: fn
+        """
+
+        kwargs.setdefault('pattern', r'/?.+')
+        kwargs.setdefault('use_modified_since', True)
+        kwargs.setdefault('use_content_range', False)
+        kwargs.setdefault('stream_large_files', False)
+        kwargs.setdefault('name', 'static')
+        kwargs.setdefault('host', None)
+        kwargs.setdefault('strict_slashes', None)
+
+        self._static.append(FutureStatic(uri, file_or_directory, args, kwargs))
 
     def on_before_registered(self, context, *args, **kwargs):
         pass
@@ -383,6 +429,8 @@ class SanicPlugin(object):
             "Unexpected keyword arguments passed to this Sanic Plugins."
         super(SanicPlugin, self).__init__(*args, **kwargs)
         self._routes = []
+        self._ws = []
+        self._static = []
         self._middlewares = []
         self._exceptions = []
         self._listeners = defaultdict(list)

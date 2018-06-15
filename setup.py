@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+# -*- coding: latin-1 -*-
 """
 Sanic Plugins Framework
 ~~~~~~~~~~~~~~~~~~~~~~~

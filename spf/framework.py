@@ -168,7 +168,7 @@ class SanicPluginsFramework(object):
     def _register_helper(plugin, context, *args, _spf=None, _plugin_name=None,
                          _url_prefix=None, **kwargs):
         error_str = "Plugin must be initialised using the " \
-                    "Sanic Plugins Framework"
+                    "Sanic Plugins Framework."
         assert _spf is not None, error_str
         assert _plugin_name is not None, error_str
         _app = _spf._app
@@ -195,9 +195,39 @@ class SanicPluginsFramework(object):
                 r.handler.__blueprintname__ = _plugin_name
             # Prepend the plugin URI prefix if available
             uri = _url_prefix + r.uri if _url_prefix else r.uri
+            uri = uri[1:] if uri.startswith('//') else uri
             _spf._plugin_register_route(
-                r.handler, plugin, context,
-                uri[1:] if uri.startswith('//') else uri, *r.args, **r.kwargs)
+                r.handler, plugin, context, uri, *r.args, **r.kwargs)
+
+        # Websocket routes
+        for w in plugin._ws:
+            # attach the plugin name to the handler so that it can be
+            # prefixed properly in the router
+            if isinstance(_app, Blueprint):
+                # blueprint always handles adding __blueprintname__
+                # So we identify ourselves here a different way.
+                handler_name = w.handler.__name__
+                w.handler.__name__ = "{}.{}".format(_plugin_name, handler_name)
+            else:
+                w.handler.__blueprintname__ = _plugin_name
+            # Prepend the plugin URI prefix if available
+            uri = _url_prefix + w.uri if _url_prefix else w.uri
+            uri = uri[1:] if uri.startswith('//') else uri
+            _spf._plugin_register_websocket_route(
+                w.handler, plugin, context, uri, *w.args, **w.kwargs)
+
+        # Static routes
+        for s in plugin._static:
+            # attach the plugin name to the static route so that it can be
+            # prefixed properly in the router
+            name = kwargs.pop('name', 'static')
+            if not name.startswith(_plugin_name + '.'):
+                name = '{}.{}'.format(_plugin_name, name)
+            # Prepend the plugin URI prefix if available
+            uri = _url_prefix + s.uri if _url_prefix else s.uri
+            uri = uri[1:] if uri.startswith('//') else uri
+            _spf._plugin_register_static_route(uri, s.file_or_dir, plugin,
+                                       context, *s.args, name=name, **s.kwargs)
 
         # Middleware
         for m in plugin._middlewares:
@@ -234,6 +264,24 @@ class SanicPluginsFramework(object):
                 handler.__blueprintname__ = bp
         return self._app.route(uri, *args, **kwargs)(handler)
 
+    def _plugin_register_websocket_route(self, handler, plugin, context, uri,
+                                         *args, with_context=False, **kwargs):
+        if with_context:
+            h_name = handler.__name__
+            try:
+                bp = handler.__blueprintname__
+            except AttributeError:
+                bp = False
+            handler = partial(handler, context=context)
+            handler.__name__ = h_name
+            if bp:
+                handler.__blueprintname__ = bp
+        return self._app.websocket(uri, *args, **kwargs)(handler)
+
+    def _plugin_register_static(self, uri, file_or_dir, plugin, context,
+                                *args, **kwargs):
+        return self._app.static(uri, file_or_dir, *args, **kwargs)
+
     def _plugin_register_exception(self, handler, plugin, context, *exceptions,
                                    with_context=False, **kwargs):
         if with_context:
@@ -246,7 +294,7 @@ class SanicPluginsFramework(object):
         assert isinstance(priority, int), "Priority must be an integer!"
         assert 0 <= priority <= 9,\
             "Priority must be between 0 and 9 (inclusive), " \
-            "0 is highest priority, 9 is least."
+            "0 is highest priority, 9 is lowest."
         assert isinstance(plugin, SanicPlugin), \
             "Plugin middleware only works with a plugin from SPF."
         if len(args) > 0 and isinstance(args[0], str) and attach_to is None:

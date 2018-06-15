@@ -19,15 +19,16 @@ class TestPlugin(SanicPlugin):
         ('/bar/baz', '', 'http://{}:{}/bar/baz'),
         ('/moo/boo', 'arg1=val1', 'http://{}:{}/moo/boo?arg1=val1')
     ])
-def test_plugin_url_attributes(path, query, expected_url):
-    app = Sanic('test_plugin_url_attrs')
+def test_plugin_ws_url_attributes(path, query, expected_url):
+    """Note, this doesn't _really_ test websocket functionality very well."""
+    app = Sanic('test_plugin_ws_url_attrs')
     spf = SanicPluginsFramework(app)
     test_plugin = TestPlugin()
 
     async def handler(request):
         return text('OK')
 
-    test_plugin.route(path)(handler)
+    test_plugin.websocket(path)(handler)
 
     spf.register_plugin(test_plugin)
     request, response = app.test_client.get(path + '?{}'.format(query))
@@ -39,3 +40,4 @@ def test_plugin_url_attributes(path, query, expected_url):
     assert parsed.path == request.path
     assert parsed.query == request.query_string
     assert parsed.netloc == request.host
+
