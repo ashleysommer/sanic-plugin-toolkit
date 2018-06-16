@@ -227,7 +227,8 @@ class SanicPluginsFramework(object):
             uri = _url_prefix + s.uri if _url_prefix else s.uri
             uri = uri[1:] if uri.startswith('//') else uri
             _spf._plugin_register_static_route(uri, s.file_or_dir, plugin,
-                                       context, *s.args, name=name, **s.kwargs)
+                                               context, *s.args, name=name,
+                                               **s.kwargs)
 
         # Middleware
         for m in plugin._middlewares:
