@@ -134,7 +134,7 @@ class SanicPluginsFramework(object):
                 "Plugin {:s} is already registered!".format(name), assoc)
         if plugin.is_registered_on_framework(self):
             raise RuntimeError("Plugin already shows it is registered to this "
-                               "spf.")
+                               "spf, maybe under a different name?")
         self._plugin_names.add(name)
         shared_context = self.shared_context
         self._contexts[name] = context = ContextDict(
@@ -165,6 +165,64 @@ class SanicPluginsFramework(object):
         return associated_tuple(plugin, reg)
 
     @staticmethod
+    def _register_middleware_helper(m, _spf, plugin, context):
+        _spf._plugin_register_middleware(m.middleware, plugin, context,
+                                         *m.args, **m.kwargs)
+
+    @staticmethod
+    def _register_route_helper(r, _spf, plugin, context, _p_name,
+                               _url_prefix):
+        # attach the plugin name to the handler so that it can be
+        # prefixed properly in the router
+        _app = _spf._app
+        if isinstance(_app, Blueprint):
+            # blueprint always handles adding __blueprintname__
+            # So we identify ourselves here a different way.
+            handler_name = r.handler.__name__
+            r.handler.__name__ = "{}.{}".format(_p_name, handler_name)
+        else:
+            r.handler.__blueprintname__ = _p_name
+        # Prepend the plugin URI prefix if available
+        uri = _url_prefix + r.uri if _url_prefix else r.uri
+        uri = uri[1:] if uri.startswith('//') else uri
+        _spf._plugin_register_route(
+            r.handler, plugin, context, uri, *r.args, **r.kwargs)
+
+    @staticmethod
+    def _register_websocket_route_helper(w, _spf, plugin, context, _p_name,
+                                         _url_prefix):
+        # attach the plugin name to the handler so that it can be
+        # prefixed properly in the router
+        _app = _spf._app
+        if isinstance(_app, Blueprint):
+            # blueprint always handles adding __blueprintname__
+            # So we identify ourselves here a different way.
+            handler_name = w.handler.__name__
+            w.handler.__name__ = "{}.{}".format(_p_name, handler_name)
+        else:
+            w.handler.__blueprintname__ = _p_name
+        # Prepend the plugin URI prefix if available
+        uri = _url_prefix + w.uri if _url_prefix else w.uri
+        uri = uri[1:] if uri.startswith('//') else uri
+        _spf._plugin_register_websocket_route(
+            w.handler, plugin, context, uri, *w.args, **w.kwargs)
+
+    @staticmethod
+    def _register_static_helper(s, _spf, plugin, context, _p_name,
+                                _url_prefix):
+        # attach the plugin name to the static route so that it can be
+        # prefixed properly in the router
+        name = s.kwargs.pop('name', 'static')
+        if not name.startswith(_p_name + '.'):
+            name = '{}.{}'.format(_p_name, name)
+        # Prepend the plugin URI prefix if available
+        uri = _url_prefix + s.uri if _url_prefix else s.uri
+        uri = uri[1:] if uri.startswith('//') else uri
+        _spf._plugin_register_static_route(uri, s.file_or_dir, plugin,
+                                           context, *s.args, name=name,
+                                           **s.kwargs)
+
+    @staticmethod
     def _register_helper(plugin, context, *args, _spf=None, _plugin_name=None,
                          _url_prefix=None, **kwargs):
         error_str = "Plugin must be initialised using the " \
@@ -183,57 +241,23 @@ class SanicPluginsFramework(object):
             return plugin
 
         # Routes
-        for r in plugin._routes:
-            # attach the plugin name to the handler so that it can be
-            # prefixed properly in the router
-            if isinstance(_app, Blueprint):
-                # blueprint always handles adding __blueprintname__
-                # So we identify ourselves here a different way.
-                handler_name = r.handler.__name__
-                r.handler.__name__ = "{}.{}".format(_plugin_name, handler_name)
-            else:
-                r.handler.__blueprintname__ = _plugin_name
-            # Prepend the plugin URI prefix if available
-            uri = _url_prefix + r.uri if _url_prefix else r.uri
-            uri = uri[1:] if uri.startswith('//') else uri
-            _spf._plugin_register_route(
-                r.handler, plugin, context, uri, *r.args, **r.kwargs)
+        [_spf._register_route_helper(r, _spf, plugin, context, _plugin_name,
+                                     _url_prefix)
+         for r in plugin._routes]
 
         # Websocket routes
-        for w in plugin._ws:
-            # attach the plugin name to the handler so that it can be
-            # prefixed properly in the router
-            if isinstance(_app, Blueprint):
-                # blueprint always handles adding __blueprintname__
-                # So we identify ourselves here a different way.
-                handler_name = w.handler.__name__
-                w.handler.__name__ = "{}.{}".format(_plugin_name, handler_name)
-            else:
-                w.handler.__blueprintname__ = _plugin_name
-            # Prepend the plugin URI prefix if available
-            uri = _url_prefix + w.uri if _url_prefix else w.uri
-            uri = uri[1:] if uri.startswith('//') else uri
-            _spf._plugin_register_websocket_route(
-                w.handler, plugin, context, uri, *w.args, **w.kwargs)
+        [_spf._register_websocket_route_helper(w, _spf, plugin, context,
+                                               _plugin_name, _url_prefix)
+         for w in plugin._ws]
 
         # Static routes
-        for s in plugin._static:
-            # attach the plugin name to the static route so that it can be
-            # prefixed properly in the router
-            name = kwargs.pop('name', 'static')
-            if not name.startswith(_plugin_name + '.'):
-                name = '{}.{}'.format(_plugin_name, name)
-            # Prepend the plugin URI prefix if available
-            uri = _url_prefix + s.uri if _url_prefix else s.uri
-            uri = uri[1:] if uri.startswith('//') else uri
-            _spf._plugin_register_static_route(uri, s.file_or_dir, plugin,
-                                               context, *s.args, name=name,
-                                               **s.kwargs)
+        [_spf._register_static_helper(s, _spf, plugin, context, _plugin_name,
+                                      _url_prefix)
+         for s in plugin._static]
 
         # Middleware
-        for m in plugin._middlewares:
-            _spf._plugin_register_middleware(
-                m.middleware, plugin, context, *m.args, **m.kwargs)
+        [_spf._register_middleware_helper(m, _spf, plugin, context)
+         for m in plugin._middlewares]
 
         # Exceptions
         for e in plugin._exceptions:
