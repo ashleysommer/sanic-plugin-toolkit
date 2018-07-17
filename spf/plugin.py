@@ -82,7 +82,7 @@ class SanicPlugin(object):
         :type args: tuple(Any)
         :param kwargs: captures the keyword arguments passed in
         :type kwargs: dict(Any)
-        :return: The exception function to use as the listener
+        :return: The function to use as the listener
         :rtype: fn
         """
         if len(args) == 1 and callable(args[0]):
@@ -90,6 +90,8 @@ class SanicPlugin(object):
                                "arguments")
 
         def wrapper(listener_f):
+            if len(kwargs) > 0:
+                listener_f = (listener_f, kwargs)
             self._listeners[event].append(listener_f)
             return listener_f
         return wrapper

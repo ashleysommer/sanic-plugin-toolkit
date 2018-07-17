@@ -1,6 +1,36 @@
 Sanic Plugins Framework
 =======================
 
+0.6.3.dev20180717
+-----------------
+Added listener functions to contextualize plugin,
+added a new example for using sqlalchemy with contextualize plugin
+Misc fixes
+
+
+0.6.2.dev20180617
+-----------------
+SanicPluginsFramework now comes with its own built-in plugin (one of possibly more to come)
+The Contextualize plugin offers the shared context and enhanced middleware functions of SanicPluginsFramework, to regular Sanic users.
+You no longer need to be writing a plugin in order to access features provided by SPF.
+Bump version
+
+
+0.6.1.dev20180616
+-----------------
+Fix flake problem inhibiting tox tests on travis from passing.
+
+
+0.6.0.dev20180616
+-----------------
+Added long-awaited feature:
+add Plugin Websocket routes
+and add Plugin Static routes
+This more-or-less completes the feature line-up for SanicPluginsFramework.
+Testing is not in place for these features yet.
+Bump version to 0.6.0.dev20180616
+
+
 0.5.2.dev20180201
 -----------------
 Changed tox runner os env from `precise` to `trusty`.

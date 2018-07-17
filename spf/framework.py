@@ -267,7 +267,10 @@ class SanicPluginsFramework(object):
         # Listeners
         for event, listeners in plugin._listeners.items():
             for listener in listeners:
-                _spf._plugin_register_listener(event, listener, plugin)
+                if isinstance(listener, tuple):
+                    listener, kwargs = listener
+                _spf._plugin_register_listener(
+                    event, listener, plugin, context, **kwargs)
 
         # # this should only ever run once!
         plugin.registrations.add(reg)
@@ -357,7 +360,10 @@ class SanicPluginsFramework(object):
                 self._pre_response_middleware.put_nowait(priority_middleware)
         return middleware
 
-    def _plugin_register_listener(self, event, listener, plugin):
+    def _plugin_register_listener(self, event, listener, plugin, context,
+                                  *args, with_context=False, **kwargs):
+        if with_context:
+            listener = partial(listener, context=context)
         return self._app.listener(event)(listener)
 
     @property

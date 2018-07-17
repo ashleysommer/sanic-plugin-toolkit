@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from collections import namedtuple
-
 from spf import SanicPlugin
 from spf.plugin import FutureRoute, FutureWebsocket, FutureMiddleware
 
@@ -67,6 +66,31 @@ class ContextualizeAssociated(ContextualizeAssociatedTuple):
             return plugin._add_new_route(reg, uri, handler_f, *args, **kwargs)
         return wrapper
 
+    def listener(self, event, *args, **kwargs):
+        """Create a listener from a decorated function.
+        :param event: Event to listen to.
+        :type event: str
+        :param args: captures all of the positional arguments passed in
+        :type args: tuple(Any)
+        :param kwargs: captures the keyword arguments passed in
+        :type kwargs: dict(Any)
+        :return: The function to use as the listener
+        :rtype: fn
+        """
+        if len(args) == 1 and callable(args[0]):
+            raise RuntimeError("Cannot use the @listener decorator without "
+                               "arguments")
+        kwargs['with_context'] = True  # This is the whole point of this plugin
+        plugin = self.plugin
+        reg = self.reg
+
+        def wrapper(listener_f):
+            nonlocal plugin, reg
+            nonlocal event, args, kwargs
+            return plugin._add_new_listener(reg, event, listener_f, *args,
+                                            **kwargs)
+        return wrapper
+
     def websocket(self, uri, *args, **kwargs):
         """Create a websocket route from a decorated function
         :param uri: endpoint at which the socket endpoint will be accessible.
@@ -122,6 +146,17 @@ class Contextualize(SanicPlugin):
         spf._register_route_helper(r, spf, self, context, p_name, url_prefix)
         return handler_f
 
+    def _add_new_listener(self, reg, event, listener_f, *args, **kwargs):
+        # A user should never call this directly.
+        # it should be called only by the AssociatedTuple
+        assert reg in self.registrations
+        (spf, p_name, url_prefix) = reg
+        context = self.get_context_from_spf(reg)
+        # This is how we add a new listener _after_ the plugin is registered
+        spf._plugin_register_listener(event, listener_f, self, context,
+                                      *args, **kwargs)
+        return listener_f
+
     def _add_new_ws_route(self, reg, uri, handler_f, *args, **kwargs):
         # A user should never call this directly.
         # it should be called only by the AssociatedTuple
@@ -158,6 +193,7 @@ class Contextualize(SanicPlugin):
                 *args, **kwargs)(middle_f)
         return wrapper
 
+    # Decorator
     def route(self, uri, *args, **kwargs):
         """Create a plugin route from a decorated function.
         :param uri: endpoint at which the route will be accessible.
@@ -183,6 +219,29 @@ class Contextualize(SanicPlugin):
             nonlocal self, uri, args, kwargs
             return super(Contextualize, self).route(
                 uri, *args, **kwargs)(handler_f)
+        return wrapper
+
+    # Decorator
+    def listener(self, event, *args, **kwargs):
+        """Create a listener from a decorated function.
+        :param event: Event to listen to.
+        :type event: str
+        :param args: captures all of the positional arguments passed in
+        :type args: tuple(Any)
+        :param kwargs: captures the keyword arguments passed in
+        :type kwargs: dict(Any)
+        :return: The exception function to use as the listener
+        :rtype: fn
+        """
+        if len(args) == 1 and callable(args[0]):
+            raise RuntimeError("Cannot use the @listener decorator without "
+                               "arguments")
+        kwargs['with_context'] = True  # This is the whole point of this plugin
+
+        def wrapper(listener_f):
+            nonlocal self, event, args, kwargs
+            return super(Contextualize, self).listener(
+                event, *args, **kwargs)(listener_f)
         return wrapper
 
     def websocket(self, uri, *args, **kwargs):

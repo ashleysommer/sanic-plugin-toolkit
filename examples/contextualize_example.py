@@ -1,7 +1,7 @@
 from sanic import Sanic
 from sanic.response import text
 from spf import SanicPluginsFramework
-from contextualize import instance as contextualize
+from plugins.contextualize import instance as contextualize
 
 app = Sanic(__name__)
 spf = SanicPluginsFramework(app)
