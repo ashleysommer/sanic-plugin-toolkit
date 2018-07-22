@@ -47,7 +47,7 @@ setup(
     description="Doing all of the boilerplate to create a Sanic Plugin, "
                 "so you don't have to.",
     long_description=long_description,
-    packages=['spf'],
+    packages=['spf', 'spf.plugins'],
     zip_safe=False,
     include_package_data=True,
     platforms='any',
