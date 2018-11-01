@@ -61,6 +61,11 @@ class ContextDict(object):
 
     def __setattr__(self, key, value):
         if key in self.__slots__:
+            if key == '__weakref__':
+                if value is None:
+                    return
+                else:
+                    raise NotImplementedError("Cannot set weakrefs on Context")
             return object.__setattr__(self, key, value)
         try:
             return self.__setitem__(key, value)
@@ -112,3 +117,20 @@ class ContextDict(object):
         args.pop(0)  # remove spf
         args.pop(0)  # remove parent
         super(ContextDict, self).__init__()
+
+    def __getstate__(self):
+        state_dict = {}
+        for s in ContextDict.__slots__:
+            state_dict[s] = getattr(self, s)
+        return state_dict
+
+    def __setstate__(self, state):
+        for s, v in state.items():
+            setattr(self, s, v)
+
+    def __reduce__(self):
+        state_dict = self.__getstate__()
+        spf = state_dict.pop('_spf')
+        parent_context = state_dict.pop('_parent_context')
+        return (ContextDict.__new__, (self.__class__, spf, parent_context),
+                state_dict)

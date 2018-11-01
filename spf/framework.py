@@ -2,11 +2,11 @@
 import sys
 from functools import partial, update_wrapper
 from inspect import isawaitable, ismodule
-from queue import PriorityQueue
+from collections import deque
 import importlib
-import logging
 import re
 from sanic import Sanic, Blueprint
+from sanic.log import logger
 from uuid import uuid1
 from spf.context import ContextDict
 from spf.plugin import SanicPlugin, PluginRegistration
@@ -14,6 +14,12 @@ from spf.plugin import SanicPlugin, PluginRegistration
 module = sys.modules[__name__]
 module.consts = CONSTS = dict()
 CONSTS["APP_CONFIG_KEY"] = APP_CONFIG_KEY = "__SPF_INSTANCE"
+
+CRITICAL = 50
+ERROR = 40
+WARNING = 30
+INFO = 20
+DEBUG = 10
 
 
 def to_snake_case(name):
@@ -34,7 +40,7 @@ to_snake_case.all_cap_re = re.compile('([a-z0-9])([A-Z])')
 
 
 class SanicPluginsFramework(object):
-    __slots__ = ('_running', '_logger', '_app', '_plugin_names', '_contexts',
+    __slots__ = ('_running', '_app', '_plugin_names', '_contexts',
                  '_pre_request_middleware', '_post_request_middleware',
                  '_pre_response_middleware', '_post_response_middleware',
                  '_loop', '__weakref__')
@@ -43,7 +49,7 @@ class SanicPluginsFramework(object):
         if reg is not None:
             (_, n, _) = reg
             message = "{:s}: {:s}".format(str(n), str(message))
-        return self._logger.log(level, message, *args, **kwargs)
+        return logger.log(level, message, *args, **kwargs)
 
     def url_for(self, view_name, *args, reg=None, **kwargs):
         if reg is not None:
@@ -63,12 +69,12 @@ class SanicPluginsFramework(object):
         try:
             _plugin_reg = _p_context[name]
         except KeyError as k:
-            self.log(logging.WARNING, "Plugin not found!")
+            self.log(WARNING, "Plugin not found!")
             raise k
         try:
             inst = _plugin_reg['instance']
         except KeyError:
-            self.log(logging.WARNING, "Plugin is not registered properly")
+            self.log(WARNING, "Plugin is not registered properly")
             inst = None
         return inst
 
@@ -118,7 +124,7 @@ class SanicPluginsFramework(object):
                 name = str(plugin.__class__.__name__)
                 assert name is not None
             except (AttributeError, AssertionError, ValueError, KeyError):
-                self._logger.warning(
+                logger.warning(
                     "Cannot determine a name for {}, using UUID."
                     .format(repr(plugin)))
                 name = str(uuid1(None, None))
@@ -333,31 +339,31 @@ class SanicPluginsFramework(object):
             middleware = partial(middleware, context=context)
         if attach_to is None or attach_to == "request":
             insert_order =\
-                self._pre_request_middleware.qsize() + \
-                self._post_request_middleware.qsize()
+                len(self._pre_request_middleware) + \
+                len(self._post_request_middleware)
             priority_middleware = (priority, insert_order, middleware)
             if relative is None or relative == 'pre':
                 # plugin request middleware default to pre-app middleware
-                self._pre_request_middleware.put_nowait(priority_middleware)
+                self._pre_request_middleware.append(priority_middleware)
             else:  # post
                 assert relative == "post",\
                     "A request middleware must have relative = pre or post"
-                self._post_request_middleware.put_nowait(priority_middleware)
+                self._post_request_middleware.append(priority_middleware)
         else:  # response
             assert attach_to == "response",\
                 "A middleware kind must be either request or response."
             insert_order = \
-                self._post_response_middleware.qsize() + \
-                self._pre_response_middleware.qsize()
+                len(self._post_response_middleware) + \
+                len(self._pre_response_middleware)
             # so they are sorted backwards
             priority_middleware = (0-priority, 0.0-insert_order, middleware)
             if relative is None or relative == 'post':
                 # plugin response middleware default to post-app middleware
-                self._post_response_middleware.put_nowait(priority_middleware)
+                self._post_response_middleware.append(priority_middleware)
             else:  # pre
                 assert relative == "pre",\
                     "A response middleware must have relative = pre or post"
-                self._pre_response_middleware.put_nowait(priority_middleware)
+                self._pre_response_middleware.append(priority_middleware)
         return middleware
 
     def _plugin_register_listener(self, event, listener, plugin, context,
@@ -385,7 +391,7 @@ class SanicPluginsFramework(object):
         try:
             _context = self._contexts[context]
         except KeyError:
-            self._logger.error("Context {:s} does not exist!")
+            logger.error("Context {:s} does not exist!")
             return None
         return _context
 
@@ -394,7 +400,7 @@ class SanicPluginsFramework(object):
         try:
             _context = self._contexts[context]
         except KeyError:
-            self._logger.warning(
+            logger.warning(
                 "Context {:s} does not exist! Falling back to shared context"
                 .format(context))
             _context = self._contexts['shared']
@@ -514,17 +520,13 @@ class SanicPluginsFramework(object):
         self._running = True
         # sort and freeze these
         self._pre_request_middleware = \
-            tuple(self._pre_request_middleware.get()
-                  for _ in range(self._pre_request_middleware.qsize()))
+            tuple(sorted(self._pre_request_middleware))
         self._post_request_middleware = \
-            tuple(self._post_request_middleware.get()
-                  for _ in range(self._post_request_middleware.qsize()))
+            tuple(sorted(self._post_request_middleware))
         self._pre_response_middleware = \
-            tuple(self._pre_response_middleware.get()
-                  for _ in range(self._pre_response_middleware.qsize()))
+            tuple(sorted(self._pre_response_middleware))
         self._post_response_middleware = \
-            tuple(self._post_response_middleware.get()
-                  for _ in range(self._post_response_middleware.qsize()))
+            tuple(sorted(self._post_response_middleware))
 
     def _patch_app(self, app):
         # monkey patch the app!
@@ -607,6 +609,23 @@ class SanicPluginsFramework(object):
         setattr(bp, APP_CONFIG_KEY, self)
         bp.listener('before_server_start')(self._on_before_server_start)
 
+    @classmethod
+    def _recreate(cls, app):
+        self = super(SanicPluginsFramework, cls).__new__(cls)
+        self._running = False
+        self._app = app
+        self._loop = None
+        self._plugin_names = set()
+        # these deques get replaced with frozen tuples at runtime
+        self._pre_request_middleware = deque()
+        self._post_request_middleware = deque()
+        self._pre_response_middleware = deque()
+        self._post_response_middleware = deque()
+        self._contexts = ContextDict(self, None)
+        self._contexts['shared'] = ContextDict(self, None, {'app': app})
+        self._contexts['_plugins'] = ContextDict(self, None, {'spf': self})
+        return self
+
     def __new__(cls, app, *args, **kwargs):
         assert app, "SPF must be given a valid Sanic App to work with."
         assert isinstance(app, Sanic) or isinstance(app, Blueprint),\
@@ -631,19 +650,7 @@ class SanicPluginsFramework(object):
                 pass
         except KeyError:
             pass
-        self = super(SanicPluginsFramework, cls).__new__(cls)
-        self._running = False
-        self._app = app
-        self._logger = logging.getLogger(__name__)
-        self._plugin_names = set()
-        # these PQs get replaced with frozen tuples at runtime
-        self._pre_request_middleware = PriorityQueue()
-        self._post_request_middleware = PriorityQueue()
-        self._pre_response_middleware = PriorityQueue()
-        self._post_response_middleware = PriorityQueue()
-        self._contexts = ContextDict(self, None)
-        self._contexts['shared'] = ContextDict(self, None, {'app': app})
-        self._contexts['_plugins'] = ContextDict(self, None, {'spf': self})
+        self = cls._recreate(app)
         if isinstance(app, Blueprint):
             self._patch_blueprint(app)
         else:
@@ -655,9 +662,45 @@ class SanicPluginsFramework(object):
         if len(args) > 0:
             args.pop(0)  # remove 'app' arg
         assert self._app and self._contexts,\
-            "Sanic Plugin Framework as not initialized correctly."
+            "Sanic Plugin Framework was not initialized correctly."
         assert len(args) < 1, \
             "Unexpected arguments passed to the Sanic Plugins Framework."
         assert len(kwargs) < 1, \
             "Unexpected keyword arguments passed to the SanicPluginsFramework."
         super(SanicPluginsFramework, self).__init__(*args, **kwargs)
+
+    def __getstate__(self):
+        if self._running:
+            raise RuntimeError("Cannot call __getstate__ on an SPF app that is already running.")
+
+        __slots__ = ('_running', '_app', '_plugin_names', '_contexts',
+                     '_pre_request_middleware', '_post_request_middleware',
+                     '_pre_response_middleware', '_post_response_middleware',
+                     '_loop', '__weakref__')
+        state_dict = {}
+        for s in SanicPluginsFramework.__slots__:
+            if s in ('_running', '_loop'):
+                continue
+            state_dict[s] = getattr(self, s)
+        return state_dict
+
+    def __setstate__(self, state):
+        running = getattr(self, '_running', False)
+        if running:
+            raise RuntimeError("Cannot call __setstate__ on an SPF app that is already running.")
+        for s, v in state.items():
+            if s in ('_running', '_loop'):
+                continue
+            if s == "__weakref__":
+                if v is None:
+                    continue
+                else:
+                    raise NotImplementedError("Setting weakrefs on SPF")
+            setattr(self, s, v)
+
+    def __reduce__(self):
+        if self._running:
+            raise RuntimeError("Cannot pickle a SPF App after it has started running!")
+        state_dict = self.__getstate__()
+        app = state_dict.pop("_app")
+        return SanicPluginsFramework._recreate, (app,), state_dict

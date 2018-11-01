@@ -1,6 +1,21 @@
 Sanic Plugins Framework
 =======================
 
+0.6.4.dev20181101
+-----------------
+- Made changes in order for SPF, and Sanic Plugins to be pickled
+- This fixes the ability for SPF-enabled Sanic Apps to use ``workers=`` on Windows, to allow multiprocessing.
+
+  - Added ``__setstate__``, ``__getstate__``, and ``__reduce__`` methods to all SPF classes
+  - Change usages of PriorityQueue to collections.deque (PriorityQueue cannot be pickled because it is a synchronous class)
+  - Changed the "name" part of all namedtuples to be the same name as the attribute key on the module they are declared in. This is necessary in order to be able to de-pickle a namedtuple object.
+
+    - This *may* be a breaking change?
+
+  - No longer store our own logger, because they cannot be picked. Just use the global logger provided by ``sanic.log.logger``
+
+
+
 0.6.3.dev20180717
 -----------------
 Added listener functions to contextualize plugin,
@@ -33,7 +48,7 @@ Bump version to 0.6.0.dev20180616
 
 0.5.2.dev20180201
 -----------------
-Changed tox runner os env from `precise` to `trusty`.
+Changed tox runner os env from ``precise`` to ``trusty``.
 Pin pytest to 3.3.2 due to a major release bug in 3.4.0.
 
 

@@ -3,7 +3,7 @@ from collections import namedtuple
 from spf import SanicPlugin
 from spf.plugin import FutureRoute, FutureWebsocket, FutureMiddleware
 
-ContextualizeAssociatedTuple = namedtuple('ContextualizeAssociated',
+ContextualizeAssociatedTuple = namedtuple('ContextualizeAssociatedTuple',
                                           ['plugin', 'reg'])
 
 

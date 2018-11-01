@@ -1,19 +1,27 @@
 # -*- coding: utf-8 -*-
-from collections import namedtuple, defaultdict
+from collections import deque, defaultdict, namedtuple
 from functools import update_wrapper
 from inspect import isawaitable
-from queue import PriorityQueue
 import importlib
-import logging
 from sanic import Sanic, Blueprint
 
+CRITICAL = 50
+ERROR = 40
+WARNING = 30
+INFO = 20
+DEBUG = 10
 
-FutureMiddleware = namedtuple('Middleware', ['middleware', 'args', 'kwargs'])
-FutureRoute = namedtuple('Route', ['handler', 'uri', 'args', 'kwargs'])
-FutureWebsocket = namedtuple('Websocket', ['handler', 'uri', 'args', 'kwargs'])
-FutureStatic = namedtuple('Static', ['uri', 'file_or_dir', 'args', 'kwargs'])
-FutureException = namedtuple('Exception', ['handler', 'exceptions', 'kwargs'])
-PluginRegistration = namedtuple('Registration',
+FutureMiddleware = namedtuple('FutureMiddleware',
+                              ['middleware', 'args', 'kwargs'])
+FutureRoute = namedtuple('FutureRoute',
+                         ['handler', 'uri', 'args', 'kwargs'])
+FutureWebsocket = namedtuple('FutureWebsocket',
+                             ['handler', 'uri', 'args', 'kwargs'])
+FutureStatic = namedtuple('FutureStatic',
+                          ['uri', 'file_or_dir', 'args', 'kwargs'])
+FutureException = namedtuple('FutureException',
+                             ['handler', 'exceptions', 'kwargs'])
+PluginRegistration = namedtuple('PluginRegistration',
                                 ['spf', 'plugin_name', 'url_prefix'])
 PluginAssociated = namedtuple('Associated', ['plugin', 'reg'])
 
@@ -231,19 +239,19 @@ class SanicPlugin(object):
         return context.log(level, message, *args, reg=self, **kwargs)
 
     def debug(self, message, *args, **kwargs):
-        return self.log(logging.DEBUG, message, *args, **kwargs)
+        return self.log(DEBUG, message, *args, **kwargs)
 
     def info(self, message, *args, **kwargs):
-        return self.log(logging.INFO, message, *args, **kwargs)
+        return self.log(INFO, message, *args, **kwargs)
 
     def warning(self, message, *args, **kwargs):
-        return self.log(logging.WARNING, message, *args, **kwargs)
+        return self.log(WARNING, message, *args, **kwargs)
 
     def error(self, message, *args, **kwargs):
-        return self.log(logging.ERROR, message, *args, **kwargs)
+        return self.log(ERROR, message, *args, **kwargs)
 
     def critical(self, message, *args, **kwargs):
-        return self.log(logging.CRITICAL, message, *args, **kwargs)
+        return self.log(CRITICAL, message, *args, **kwargs)
 
     @classmethod
     def decorate(cls, app, *args, run_middleware=False, with_context=False,
@@ -274,14 +282,14 @@ class SanicPlugin(object):
             assoc = e.args[1]
         (plugin, reg) = assoc
         inst = spf.get_plugin(plugin)  # plugin may not actually be registered
+        # registered might be True, False or None at this point
         regd = True if inst else None
         if regd is True:
             # middleware will be run on this route anyway, because the plugin
             # is registered on the app. Turn it off on the route-level.
             run_middleware = False
-        req_middleware = PriorityQueue()
-        resp_middleware = PriorityQueue()
-        # registered might be True, False or None at this point
+        req_middleware = deque()
+        resp_middleware = deque()
         if run_middleware:
             for i, m in enumerate(plugin._middlewares):
                 attach_to = m.kwargs.pop('attach_to', 'request')
@@ -296,7 +304,7 @@ class SanicPlugin(object):
                     else:  # relative = "post"
                         mw = (1, 0 - priority, 0 - i, mw_handle_fn,
                               with_context, m.args, m.kwargs)
-                    resp_middleware.put_nowait(mw)
+                    resp_middleware.append(mw)
                 else:  # attach_to = "request"
                     relative = m.kwargs.pop('relative', 'pre')
                     if relative == "post":
@@ -305,12 +313,10 @@ class SanicPlugin(object):
                     else:  # relative = "pre"
                         mw = (0, priority, i, mw_handle_fn, with_context,
                               m.args, m.kwargs)
-                    req_middleware.put_nowait(mw)
+                    req_middleware.append(mw)
 
-        req_middleware = tuple(req_middleware.get()
-                               for _ in range(req_middleware.qsize()))
-        resp_middleware = tuple(resp_middleware.get()
-                                for _ in range(resp_middleware.qsize()))
+        req_middleware = tuple(sorted(req_middleware))
+        resp_middleware = tuple(sorted(resp_middleware))
 
         def _decorator(f):
             nonlocal spf, plugin, regd, run_middleware, with_context
@@ -382,7 +388,7 @@ class SanicPlugin(object):
         # making a bold assumption here.
         # Assuming that if a sanic plugin is initialized using
         # `MyPlugin(app)`, then the user is attempting to do a legacy plugin
-        # instantiation.
+        # instantiation, aka Flask-Style plugin instantiation.
         if args and len(args) > 0 and \
                 (isinstance(args[0], Sanic) or isinstance(args[0], Blueprint)):
             app = args[0]
@@ -438,3 +444,22 @@ class SanicPlugin(object):
         self._listeners = defaultdict(list)
         self.registrations = set()
         self._initialized = True
+
+    def __getstate__(self):
+        state_dict = {}
+        for s in SanicPlugin.__slots__:
+            state_dict[s] = getattr(self, s)
+        return state_dict
+
+    def __setstate__(self, state):
+        for s, v in state.items():
+            if s == "__weakref__":
+                if v is None:
+                    continue
+                else:
+                    raise NotImplementedError("Setting weakrefs on Plugin")
+            setattr(self, s, v)
+
+    def __reduce__(self):
+        state_dict = self.__getstate__()
+        return SanicPlugin.__new__, (self.__class__,), state_dict
