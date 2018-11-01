@@ -671,12 +671,9 @@ class SanicPluginsFramework(object):
 
     def __getstate__(self):
         if self._running:
-            raise RuntimeError("Cannot call __getstate__ on an SPF app that is already running.")
-
-        __slots__ = ('_running', '_app', '_plugin_names', '_contexts',
-                     '_pre_request_middleware', '_post_request_middleware',
-                     '_pre_response_middleware', '_post_response_middleware',
-                     '_loop', '__weakref__')
+            raise RuntimeError(
+                "Cannot call __getstate__ on an SPF app that is "
+                "already running.")
         state_dict = {}
         for s in SanicPluginsFramework.__slots__:
             if s in ('_running', '_loop'):
@@ -687,7 +684,9 @@ class SanicPluginsFramework(object):
     def __setstate__(self, state):
         running = getattr(self, '_running', False)
         if running:
-            raise RuntimeError("Cannot call __setstate__ on an SPF app that is already running.")
+            raise RuntimeError(
+                "Cannot call __setstate__ on an SPF app that is "
+                "already running.")
         for s, v in state.items():
             if s in ('_running', '_loop'):
                 continue
@@ -700,7 +699,8 @@ class SanicPluginsFramework(object):
 
     def __reduce__(self):
         if self._running:
-            raise RuntimeError("Cannot pickle a SPF App after it has started running!")
+            raise RuntimeError(
+                "Cannot pickle a SPF App after it has started running!")
         state_dict = self.__getstate__()
         app = state_dict.pop("_app")
         return SanicPluginsFramework._recreate, (app,), state_dict
