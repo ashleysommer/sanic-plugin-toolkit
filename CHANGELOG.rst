@@ -1,6 +1,13 @@
 Sanic Plugins Framework
 =======================
 
+0.6.5
+-----
+- Changed the versioning scheme to not include ".devN" suffixes. This was preventing SPF from being installed using ``pipenv``
+
+  - This is in preparation for a 1.0.0 release, to coincide with the Sanic 2018.12 release.
+
+
 0.6.4.dev20181101
 -----------------
 - Made changes in order for SPF, and Sanic Plugins to be pickled
@@ -13,7 +20,6 @@ Sanic Plugins Framework
     - This *may* be a breaking change?
 
   - No longer store our own logger, because they cannot be picked. Just use the global logger provided by ``sanic.log.logger``
-
 
 
 0.6.3.dev20180717
