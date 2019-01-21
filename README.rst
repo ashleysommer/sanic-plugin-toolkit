@@ -124,12 +124,12 @@ The Application developer can use your plugin in their code like this:
 
     # Source: app.py
     from sanic import Sanic
-    from spf import SanicPluginFramework
+    from spf import SanicPluginsFramework
     from sanic.response import text
     import my_plugin
 
     app = Sanic(__name__)
-    spf = SanicPluginFramework(app)
+    spf = SanicPluginsFramework(app)
     spf.register_plugin(my_plugin)
 
     # ... rest of user app here

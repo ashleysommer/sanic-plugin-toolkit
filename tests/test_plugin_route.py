@@ -11,7 +11,7 @@ class TestPlugin(SanicPlugin):
 
 
 # The following tests are taken directly from Sanic source @ v0.6.0
-# and modified to test the SanicPluginFramework, rather than Sanic
+# and modified to test the SanicPluginsFramework, rather than Sanic
 
 @pytest.mark.parametrize(
     'path,query,expected_url', [
