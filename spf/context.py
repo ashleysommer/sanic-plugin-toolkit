@@ -28,7 +28,7 @@ own children.
         return "ContextDict({:s})".format(_dict_repr)
 
     def __str__(self):
-        _dict_str = repr(self._inner())
+        _dict_str = str(self._inner())
         return "ContextDict({:s})".format(_dict_str)
 
     def __len__(self):
@@ -59,10 +59,6 @@ own children.
     def __delitem__(self, key):
         self._inner().__delitem__(key)
 
-    def __delslice__(self, i, j):
-        raise NotImplementedError(
-            "You cannot delete a slice from a ContextDict")
-
     def __getattr__(self, item):
         if item in self.__slots__:
             return object.__getattribute__(self, item)
@@ -77,11 +73,11 @@ own children.
                 if value is None:
                     return
                 else:
-                    raise NotImplementedError("Cannot set weakrefs on Context")
+                    raise ValueError("Cannot set weakrefs on Context")
             return object.__setattr__(self, key, value)
         try:
             return self.__setitem__(key, value)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             # what exceptions can occur on setting an item?
             raise e
 
@@ -97,7 +93,7 @@ own children.
     def set(self, key, value):
         try:
             return self.__setattr__(key, value)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             raise e
 
     def items(self):
