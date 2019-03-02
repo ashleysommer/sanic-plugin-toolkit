@@ -93,7 +93,7 @@ class SanicPluginsFramework(object):
             try:
                 mod = importlib.import_module(module_name)
                 try:
-                    plugin = mod.getattr(lower_class)
+                    plugin = getattr(mod, lower_class)
                 except AttributeError:
                     plugin = mod  # try the module-based resolution next
             except ImportError:

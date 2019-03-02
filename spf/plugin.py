@@ -23,7 +23,7 @@ FutureException = namedtuple('FutureException',
                              ['handler', 'exceptions', 'kwargs'])
 PluginRegistration = namedtuple('PluginRegistration',
                                 ['spf', 'plugin_name', 'url_prefix'])
-PluginAssociated = namedtuple('Associated', ['plugin', 'reg'])
+PluginAssociated = namedtuple('PluginAssociated', ['plugin', 'reg'])
 
 
 class SanicPlugin(object):

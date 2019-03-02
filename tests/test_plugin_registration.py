@@ -10,6 +10,15 @@ class TestPlugin(SanicPlugin):
 instance = TestPlugin()
 
 
+def test_spf_registration():
+    app = Sanic('test_spf_registration')
+    spf = SanicPluginsFramework(app)
+    reg = spf.register_plugin(instance)
+    assert isinstance(reg, PluginAssociated)
+    (plugin, reg) = reg
+    assert isinstance(reg, PluginRegistration)
+    assert plugin == instance
+
 def test_legacy_registration_1():
     app = Sanic('test_legacy_registration_1')
     spf = SanicPluginsFramework(app)
@@ -53,3 +62,17 @@ def test_duplicate_legacy_registration():
     (plugin2, reg2) = assoc2
     assert len(plugin1.registrations) == baseline_reg_count + 1
     assert plugin1 == plugin2
+
+class TestPlugin2(SanicPlugin):
+    pass
+
+test_plugin2 = TestPlugin2()
+
+def test_plugiun_class_registration():
+    app = Sanic('test_spf_registration')
+    spf = SanicPluginsFramework(app)
+    reg = spf.register_plugin(TestPlugin2)
+    assert isinstance(reg, PluginAssociated)
+    (plugin, reg) = reg
+    assert isinstance(reg, PluginRegistration)
+    assert plugin == test_plugin2
