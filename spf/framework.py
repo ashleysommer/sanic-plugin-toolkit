@@ -224,9 +224,9 @@ class SanicPluginsFramework(object):
         # Prepend the plugin URI prefix if available
         uri = _url_prefix + s.uri if _url_prefix else s.uri
         uri = uri[1:] if uri.startswith('//') else uri
-        _spf._plugin_register_static_route(uri, s.file_or_dir, plugin,
-                                           context, *s.args, name=name,
-                                           **s.kwargs)
+        _spf._plugin_register_static(uri, s.file_or_dir, plugin,
+                                     context, *s.args, name=name,
+                                     **s.kwargs)
 
     @staticmethod
     def _register_helper(plugin, context, *args, _spf=None, _plugin_name=None,
