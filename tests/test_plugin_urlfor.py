@@ -1,6 +1,5 @@
-from sanic import Sanic
 from sanic.response import text, redirect
-from spf import SanicPlugin, SanicPluginsFramework
+from spf import SanicPlugin
 
 
 class TestPlugin(SanicPlugin):
@@ -20,9 +19,8 @@ def t2(request, context):
     t1 = url_for('t1')
     return redirect(t1)
 
-def test_plugin_urlfor_1():
-    app = Sanic('test_plugin_urlfor_1')
-    spf = SanicPluginsFramework(app)
+def test_plugin_urlfor_1(spf):
+    app = spf._app
     spf.register_plugin(test_plugin)
     client = app.test_client
     resp = client.get('/t2')

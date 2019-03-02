@@ -2,7 +2,6 @@ from sanic import Sanic
 from sanic.response import text
 from sanic.exceptions import InvalidUsage, ServerError, NotFound
 from sanic.handlers import ErrorHandler
-
 from spf import SanicPlugin, SanicPluginsFramework
 
 class TestPlugin(SanicPlugin):

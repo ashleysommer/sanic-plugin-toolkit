@@ -1,9 +1,7 @@
-from json import loads as json_loads, dumps as json_dumps
 from sanic import Sanic
 from sanic.request import Request
-from sanic.response import json, text, HTTPResponse
+from sanic.response import text, HTTPResponse
 from sanic.exceptions import NotFound
-
 from spf import SanicPlugin, SanicPluginsFramework
 
 class TestPlugin(SanicPlugin):
@@ -16,9 +14,8 @@ class TestPlugin(SanicPlugin):
 #  GET
 # ------------------------------------------------------------ #
 
-def test_middleware_request():
-    app = Sanic('test_middleware_request')
-    spf = SanicPluginsFramework(app)
+def test_middleware_request(spf):
+    app = spf._app
     plugin = TestPlugin()
 
     results = []
@@ -38,9 +35,8 @@ def test_middleware_request():
     assert type(results[0]) is Request
 
 
-def test_middleware_response():
-    app = Sanic('test_middleware_response')
-    spf = SanicPluginsFramework(app)
+def test_middleware_response(spf):
+    app = spf._app
     plugin = TestPlugin()
     results = []
 
@@ -66,11 +62,9 @@ def test_middleware_response():
     assert isinstance(results[2], HTTPResponse)
 
 
-def test_middleware_response_exception():
-    app = Sanic('test_middleware_response_exception')
-    spf = SanicPluginsFramework(app)
+def test_middleware_response_exception(spf):
+    app = spf._app
     plugin = TestPlugin()
-
     result = {'status_code': None}
 
     @plugin.middleware('response')
@@ -91,9 +85,8 @@ def test_middleware_response_exception():
     assert response.text == 'OK'
     assert result['status_code'] == 404
 
-def test_middleware_override_request():
-    app = Sanic('test_middleware_override_request')
-    spf = SanicPluginsFramework(app)
+def test_middleware_override_request(spf):
+    app = spf._app
     plugin = TestPlugin()
 
     @plugin.middleware
@@ -111,9 +104,8 @@ def test_middleware_override_request():
     assert response.text == 'OK'
 
 
-def test_middleware_override_response():
-    app = Sanic('test_middleware_override_response')
-    spf = SanicPluginsFramework(app)
+def test_middleware_override_response(spf):
+    app = spf._app
     plugin = TestPlugin()
     @plugin.middleware('response')
     async def process_response(request, response):
@@ -131,9 +123,8 @@ def test_middleware_override_response():
 
 
 
-def test_middleware_order():
-    app = Sanic('test_middleware_order')
-    spf = SanicPluginsFramework(app)
+def test_middleware_order(spf):
+    app = spf._app
     plugin = TestPlugin()
     order = []
 

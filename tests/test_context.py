@@ -1,17 +1,42 @@
-import pytest
 import pickle
-from sanic import Sanic
-from spf import SanicPluginsFramework
 from spf.context import ContextDict
 
+def test_context_set_contains_get(spf):
+    context = ContextDict(spf, None)
+    context.set("t1", "hello world")
+    assert "t1" in context
+    assert context.get("t1") == "hello world"
+    exceptions = []
+    try:
+        context.set("__weakref__", set())
+    except ValueError as e:
+        exceptions.append(e)
+    finally:
+        assert len(exceptions) > 0
 
-##TODO: Test context stuff
+def test_context_get_private_from_slots(spf):
+    context = ContextDict(spf, None)
+    context.set("t1", "hello world")
+    d = context.__getattr__('_dict')
+    d2 = getattr(context, '_dict')
+    assert isinstance(d, dict)
+    assert "t1" in d
+    assert d == d2
 
+def test_context_items_keys_values(spf):
+    context = ContextDict(spf, None)
+    context["t1"] = "hello world"
+    context["t2"] = "hello 2"
+    items = context.items()
+    assert len(items) == 2
+    keys = context.keys()
+    assert len(keys) == 2
+    assert next(iter(keys)) == "t1"
+    vals = context.values()
+    assert len(vals) == 2
+    assert next(iter(vals)) == "hello world"
 
-
-def test_context_pickle():
-    app = Sanic()
-    spf = SanicPluginsFramework(app)
+def test_context_pickle(spf):
     context = ContextDict(spf, None)
     child_context = context.create_child_context()
     child_context['t1'] = "hello world"
@@ -23,12 +48,9 @@ def test_context_pickle():
     assert un_p._parent_context != context
     assert un_p['t1'] == "hello world"
 
-def test_context_replace():
-    app = Sanic()
-    spf = SanicPluginsFramework(app)
+def test_context_replace(spf):
     context = ContextDict(spf, None)
     child_context = context.create_child_context()
-
     context['t1'] = "hello world"
     assert child_context['t1'] == "hello world"
     child_context['t1'] = "goodbye world"
@@ -37,15 +59,60 @@ def test_context_replace():
     child_context.replace('t1', 'goodbye world')
     assert context['t1'] == "goodbye world"
 
-def test_context_update():
-    app = Sanic()
-    spf = SanicPluginsFramework(app)
+def test_context_update(spf):
     context = ContextDict(spf, None)
     child_context = context.create_child_context()
-
     context['t1'] = "hello world"
     child_context['t2'] = "hello2"
     assert child_context['t1'] == "hello world"
     child_context.update({'t1': "test1", 't2': "test2"})
     assert context['t1'] == "test1"
     assert child_context['t2'] == "test2"
+
+def test_context_del(spf):
+    context = ContextDict(spf, None)
+    context.set(1, "1")
+    context.set(2, "2")
+    context.set(3, "3")
+    context.set(4, "4")
+    del context[1]
+    one = context.get(1, None)
+    assert one is None
+    exceptions = []
+    try:
+        #TODO: How do you even delete a slice?
+        del context[2:4]
+    except Exception as e:
+        exceptions.append(e)
+    finally:
+        assert len(exceptions) > 0
+
+def test_context_str(spf):
+    context = ContextDict(spf, None)
+    context['t1'] = "hello world"
+    s1 = str(context)
+    assert s1 == "ContextDict({'t1': 'hello world'})"
+
+def test_context_repr(spf):
+    context = ContextDict(spf, None)
+    context['t1'] = "hello world"
+    s1 = repr(context)
+    assert s1 == "ContextDict({'t1': 'hello world'})"
+
+def test_recursive_dict(spf):
+    context = ContextDict(spf, None)
+    context['t1'] = "hello world"
+    c2 = context.create_child_context()
+    c2['t2'] = "hello 2"
+    c3 = context.create_child_context()
+    c3['t3'] = "hello 3"
+    context._parent_context = c3  # This is dodgy, why would anyone do this?
+    exceptions = []
+    try:
+        _ = c2['t4']
+    except RuntimeError as e:
+        assert len(e.args) > 0
+        assert "recursive" in str(e.args[0]).lower()
+        exceptions.append(e)
+    finally:
+        assert len(exceptions) == 1

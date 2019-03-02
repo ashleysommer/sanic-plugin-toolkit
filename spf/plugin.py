@@ -71,7 +71,7 @@ class SanicPlugin(object):
         if len(args) == 1 and callable(args[0]):
             if isinstance(args[0], type) and issubclass(args[0], Exception):
                 pass
-            else:
+            else:  # pragma: no cover
                 raise RuntimeError("Cannot use the @exception decorator "
                                    "without arguments")
 
@@ -93,7 +93,7 @@ class SanicPlugin(object):
         :return: The function to use as the listener
         :rtype: fn
         """
-        if len(args) == 1 and callable(args[0]):
+        if len(args) == 1 and callable(args[0]):  # pragma: no cover
             raise RuntimeError("Cannot use the @listener decorator without "
                                "arguments")
 
@@ -115,7 +115,7 @@ class SanicPlugin(object):
         :return: The exception function to use as the decorator
         :rtype: fn
         """
-        if len(args) == 0 and callable(uri):
+        if len(args) == 0 and callable(uri):  # pragma: no cover
             raise RuntimeError("Cannot use the @route decorator without "
                                "arguments.")
         kwargs.setdefault('methods', frozenset({'GET'}))

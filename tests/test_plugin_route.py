@@ -19,9 +19,8 @@ class TestPlugin(SanicPlugin):
         ('/bar/baz', '', 'http://{}:{}/bar/baz'),
         ('/moo/boo', 'arg1=val1', 'http://{}:{}/moo/boo?arg1=val1')
     ])
-def test_plugin_url_attributes(path, query, expected_url):
-    app = Sanic('test_plugin_url_attrs')
-    spf = SanicPluginsFramework(app)
+def test_plugin_url_attributes(spf, path, query, expected_url):
+    app = spf._app
     test_plugin = TestPlugin()
 
     async def handler(request):

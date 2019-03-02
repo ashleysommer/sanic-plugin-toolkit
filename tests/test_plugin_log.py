@@ -19,9 +19,8 @@ def t1(request, context):
     return text("t1")
 
 
-def test_plugin_log1():
-    app = Sanic('test_plugin_log1')
-    spf = SanicPluginsFramework(app)
+def test_plugin_log1(spf):
+    app = spf._app
     plugin = spf.register_plugin(test_plugin)
     client = app.test_client
     exceptions = None
