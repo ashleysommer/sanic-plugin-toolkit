@@ -35,7 +35,7 @@ own children.
         return len(self._inner())
 
     def __setitem__(self, key, value):
-        #TODO: If key is in __slots__, ignore it and return
+        # TODO: If key is in __slots__, ignore it and return
         return self._inner().__setitem__(key, value)
 
     def __getitem__(self, item):

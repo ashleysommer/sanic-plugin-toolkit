@@ -31,10 +31,10 @@ def test_context_items_keys_values(spf):
     assert len(items) == 2
     keys = context.keys()
     assert len(keys) == 2
-    assert next(iter(keys)) == "t1"
+    assert "t1" in list(keys)
     vals = context.values()
     assert len(vals) == 2
-    assert next(iter(vals)) == "hello world"
+    assert "hello world" in list(vals)
 
 def test_context_pickle(spf):
     context = ContextDict(spf, None)
