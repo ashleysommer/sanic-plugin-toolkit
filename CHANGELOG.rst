@@ -1,6 +1,15 @@
 Sanic Plugins Framework
 =======================
 
+0.6.6
+-----
+- No 1.0 yet, there are more features planed before we call SPF ready for 1.0.
+- Add more tests, and start filling in some missing test coverage
+- Fix a couple of bugs already uncovered by filling in coverage.
+
+  - Notably, fix an issue that was preventing the plugin static file helper from working.
+
+
 0.6.5
 -----
 - Changed the versioning scheme to not include ".devN" suffixes. This was preventing SPF from being installed using ``pipenv``
