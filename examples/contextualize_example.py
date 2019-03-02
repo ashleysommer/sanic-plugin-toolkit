@@ -1,13 +1,13 @@
 from sanic import Sanic
 from sanic.response import text
 from spf import SanicPluginsFramework
-from plugins.contextualize import instance as contextualize
+from spf.plugins.contextualize import instance as contextualize
 
 app = Sanic(__name__)
 spf = SanicPluginsFramework(app)
 
 
-# You can create a context middlewares _before_ registering the plugin
+# You can create a context middleware _before_ registering the plugin
 @contextualize.middleware
 def middle1(request, context):
     shared = context.shared
