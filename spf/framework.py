@@ -408,24 +408,32 @@ class SanicPluginsFramework(object):
 
     def create_temporary_request_context(self, request):
         request_hash = id(request)
-        new_ctx = ContextDict(self, None, {})
+        new_ctx = ContextDict(self, None, {'id': 'shared request contexts'})
         shared_context = self.shared_context
         shared_request = shared_context.get('request', False)
         if not shared_request:
             shared_context['request'] = shared_request = new_ctx
         shared_request[request_hash] =\
-            ContextDict(self, None, {'request': request})
+            ContextDict(self, None,
+                        {'request': request,
+                         'id': "shared request context for request {}"
+                               .format(id(request))})
         for name, _p in self._plugins_context.items():
-            if isinstance(_p, ContextDict) and 'instance' in _p \
-                    and isinstance(_p['instance'], SanicPlugin):
-                if 'context' in _p and isinstance(_p['context'], ContextDict):
-                    _p_context = _p['context']
-                    p_request = _p_context.get('request', False)
-                    if not p_request:
-                        _p_context['request'] = p_request = ContextDict(
-                            self, None, {})
-                    p_request[request_hash] =\
-                        ContextDict(self, None, {'request': request})
+            if not (isinstance(_p, ContextDict) and 'instance' in _p
+                    and isinstance(_p['instance'], SanicPlugin)):
+                continue
+            if not('context' in _p and isinstance(_p['context'], ContextDict)):
+                continue
+            _p_context = _p['context']
+            if 'request' not in _p_context:
+                _p_context['request'] = p_request = ContextDict(
+                    self, None, {'id': 'private request contexts'})
+            else:
+                p_request = _p_context.request
+            p_request[request_hash] =\
+                ContextDict(self, None, {'request': request,
+                    'id': "private request context for {} on request {}"
+                          .format(name, id(request))})
 
     def delete_temporary_request_context(self, request):
         request_hash = id(request)
@@ -438,17 +446,19 @@ class SanicPluginsFramework(object):
         except KeyError:
             pass
         for name, _p in self._plugins_context.items():
-            if isinstance(_p, ContextDict) and 'instance' in _p \
-                    and isinstance(_p['instance'], SanicPlugin):
-                if 'context' in _p and isinstance(_p['context'], ContextDict):
-                    _p_context = _p['context']
-                    try:
-                        _p_request = _p['context']['request']
-                        del _p_request[request_hash]
-                        if len(_p_request) < 1:
-                            del _p_context['request']
-                    except KeyError:
-                        pass
+            if not (isinstance(_p, ContextDict) and 'instance' in _p
+                    and isinstance(_p['instance'], SanicPlugin)):
+                continue
+            if not('context' in _p and isinstance(_p['context'], ContextDict)):
+                continue
+            _p_context = _p['context']
+            try:
+                _p_request = _p_context['request']
+                del _p_request[request_hash]
+                if len(_p_request) < 1:
+                    del _p_context['request']
+            except KeyError:
+                pass
 
     async def _run_request_middleware(self, request):
         assert self._running,\

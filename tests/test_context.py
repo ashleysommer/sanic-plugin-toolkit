@@ -104,7 +104,7 @@ def test_recursive_dict(spf):
     context['t1'] = "hello world"
     c2 = context.create_child_context()
     c2['t2'] = "hello 2"
-    c3 = context.create_child_context()
+    c3 = c2.create_child_context()
     c3['t3'] = "hello 3"
     context._parent_context = c3  # This is dodgy, why would anyone do this?
     exceptions = []

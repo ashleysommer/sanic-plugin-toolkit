@@ -1,6 +1,12 @@
 Sanic Plugins Framework
 =======================
 
+0.6.7
+-----
+- A critical fix for plugin-private-request contexts. They were always overwriting the shared request context when they were created.
+- Added new 'id' field inside the private request context container and the shared request context container, to tell them apart when they are used.
+- Added a new test for this exact issue.
+
 0.6.6
 -----
 - No 1.0 yet, there are more features planed before we call SPF ready for 1.0.

@@ -5,6 +5,8 @@ from sanic.testing import HOST, PORT
 from spf import SanicPluginsFramework, SanicPlugin
 import pytest
 
+from spf.context import ContextDict
+
 
 class TestPlugin(SanicPlugin):
     pass
@@ -38,3 +40,38 @@ def test_plugin_url_attributes(spf, path, query, expected_url):
     assert parsed.path == request.path
     assert parsed.query == request.query_string
     assert parsed.netloc == request.host
+
+def test_plugin_route_context(spf):
+    app = spf._app
+    test_plugin = TestPlugin()
+
+    async def handler(request, context):
+        assert isinstance(context, ContextDict)
+        shared = context.get('shared', None)
+        assert shared is not None
+        shared_request = shared.get('request', None)
+        assert shared_request is not None
+        req_id = id(request)
+        shared_request = shared_request.get(req_id, None)
+        assert shared_request is not None
+        assert isinstance(shared_request, ContextDict)
+        r2 = shared_request.get('request', None)
+        assert r2 is not None
+        assert r2 == request
+
+        priv_request = context.get('request', None)
+        assert priv_request is not None
+        priv_request = priv_request.get(req_id, None)
+        assert priv_request is not None
+        assert isinstance(priv_request, ContextDict)
+        r3 = priv_request.get('request', None)
+        assert r3 is not None
+        assert r3 == request
+        assert priv_request != shared_request
+        return text('OK')
+
+    test_plugin.route('/', with_context=True)(handler)
+
+    spf.register_plugin(test_plugin)
+    request, response = app.test_client.get('/')
+    assert response.text == "OK"
