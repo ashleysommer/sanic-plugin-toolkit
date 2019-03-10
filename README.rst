@@ -22,13 +22,14 @@ The Enhanced Middleware System
 ------------------------------
 
 The Middleware system in the Sanic Plugins Framework both builds upon and extends the native Sanic middleware system.
-Rather than simply having two middleware queues ('request', and 'response'), the middleware system in SPF uses four
-queues.
+Rather than simply having two middleware queues ('request', and 'response'), the middleware system in SPF uses five
+additional queues.
 
 - Request-Pre: These middleware run *before* the application's own request middleware.
 - Request-Post: These middleware run *after* the application's own request middleware.
 - Response-Pre: These middleware run *before* the application's own response middleware.
 - Response-Post: These middleware run *after* the application's own response middleware.
+- Cleanup: These middleware run *after* all of the above middleware, and are run after a response is sent, and are run even if response is None.
 
 So as a plugin developer you can choose whether you need your middleware to be executed before or after the
 application's own middleware.
@@ -110,6 +111,13 @@ A simple plugin written using the Sanic Plugins Framework will look like this:
     def my_middleware4(request, response, context):
         # Do response middleware here
         return response
+
+    #Add attach_to='cleanup' to make this run even when the Response is None.
+    #This queue is fired _after_ response is already sent to the client.
+    @my_plugin.middleware(attach_to='cleanup', with_context=True)
+    def my_middleware5(request, context):
+        # Do per-request cleanup here.
+        return None
 
     #Add your plugin routes here. You can even choose to have your context passed in to the route.
     @my_plugin.route('/test_plugin', with_context=True)

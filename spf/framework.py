@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import sys
+from asyncio import CancelledError
 from functools import partial, update_wrapper
 from inspect import isawaitable, ismodule
 from collections import deque
@@ -43,7 +44,7 @@ class SanicPluginsFramework(object):
     __slots__ = ('_running', '_app', '_plugin_names', '_contexts',
                  '_pre_request_middleware', '_post_request_middleware',
                  '_pre_response_middleware', '_post_response_middleware',
-                 '_loop', '__weakref__')
+                 '_cleanup_middleware', '_loop', '__weakref__')
 
     def log(self, level, message, reg=None, *args, **kwargs):
         if reg is not None:
@@ -287,13 +288,12 @@ class SanicPluginsFramework(object):
     def _plugin_register_route(self, handler, plugin, context, uri, *args,
                                with_context=False, **kwargs):
         if with_context:
-            h_name = handler.__name__
             try:
                 bp = handler.__blueprintname__
             except AttributeError:
                 bp = False
-            handler = partial(handler, context=context)
-            handler.__name__ = h_name
+            handler = update_wrapper(partial(handler, context=context),
+                                     handler)
             if bp:
                 handler.__blueprintname__ = bp
         return self._app.route(uri, *args, **kwargs)(handler)
@@ -301,13 +301,12 @@ class SanicPluginsFramework(object):
     def _plugin_register_websocket_route(self, handler, plugin, context, uri,
                                          *args, with_context=False, **kwargs):
         if with_context:
-            h_name = handler.__name__
             try:
                 bp = handler.__blueprintname__
             except AttributeError:
                 bp = False
-            handler = partial(handler, context=context)
-            handler.__name__ = h_name
+            handler = update_wrapper(partial(handler, context=context),
+                                     handler)
             if bp:
                 handler.__blueprintname__ = bp
         return self._app.websocket(uri, *args, **kwargs)(handler)
@@ -319,7 +318,8 @@ class SanicPluginsFramework(object):
     def _plugin_register_exception(self, handler, plugin, context, *exceptions,
                                    with_context=False, **kwargs):
         if with_context:
-            handler = partial(handler, context=context)
+            handler = update_wrapper(partial(handler, context=context),
+                                     handler)
         return self._app.exception(*exceptions)(handler)
 
     def _plugin_register_middleware(self, middleware, plugin, context, *args,
@@ -336,7 +336,8 @@ class SanicPluginsFramework(object):
             # the first arg is interpreted as 'attach_to'
             attach_to = args[0]
         if with_context:
-            middleware = partial(middleware, context=context)
+            middleware = update_wrapper(partial(middleware, context=context),
+                                        middleware)
         if attach_to is None or attach_to == "request":
             insert_order =\
                 len(self._pre_request_middleware) + \
@@ -349,6 +350,12 @@ class SanicPluginsFramework(object):
                 assert relative == "post",\
                     "A request middleware must have relative = pre or post"
                 self._post_request_middleware.append(priority_middleware)
+        elif attach_to == "cleanup":
+            insert_order = len(self._cleanup_middleware)
+            priority_middleware = (priority, insert_order, middleware)
+            assert relative is None, \
+               "A cleanup middleware cannot have relative pre or post"
+            self._cleanup_middleware.append(priority_middleware)
         else:  # response
             assert attach_to == "response",\
                 "A middleware kind must be either request or response."
@@ -369,7 +376,8 @@ class SanicPluginsFramework(object):
     def _plugin_register_listener(self, event, listener, plugin, context,
                                   *args, with_context=False, **kwargs):
         if with_context:
-            listener = partial(listener, context=context)
+            listener = update_wrapper(partial(listener, context=context),
+                                      listener)
         return self._app.listener(event)(listener)
 
     @property
@@ -460,6 +468,30 @@ class SanicPluginsFramework(object):
             except KeyError:
                 pass
 
+    async def _handle_request(self, real_handle, request, write_callback,
+                              stream_callback):
+        cancelled = False
+        try:
+            _ = await real_handle(request, write_callback,
+                                  stream_callback)
+        except CancelledError as ce:
+            # We still want to run cleanup middleware, even if cancelled
+            cancelled = ce
+        except BaseException as be:
+            logger.error("SPF caught an error that should have been caught"
+                         " by Sanic response handler.")
+            logger.error(str(be))
+            raise
+        finally:
+            _ = await self._run_cleanup_middleware(request)
+            if cancelled:
+                raise cancelled
+
+    def wrap_handle_request(self, app):
+        orig_handle_request = app.handle_request
+        return update_wrapper(partial(
+            self._handle_request, orig_handle_request), self._handle_request)
+
     async def _run_request_middleware(self, request):
         assert self._running,\
             "App must be running before you can run middleware!"
@@ -512,8 +544,18 @@ class SanicPluginsFramework(object):
                 if _response:
                     response = _response
                     break
-        self.delete_temporary_request_context(request)
         return response
+
+    async def _run_cleanup_middleware(self, request):
+        if self._cleanup_middleware:
+            for (_pri, _ins, middleware) in self._cleanup_middleware:
+                response = middleware(request)
+                if isawaitable(response):
+                    response = await response
+                if response:
+                    return response
+        self.delete_temporary_request_context(request)
+        return None
 
     def _on_before_server_start(self, app, loop=None):
         if not isinstance(self._app, Blueprint):
@@ -537,9 +579,12 @@ class SanicPluginsFramework(object):
             tuple(sorted(self._pre_response_middleware))
         self._post_response_middleware = \
             tuple(sorted(self._post_response_middleware))
+        self._cleanup_middleware = \
+            tuple(sorted(self._cleanup_middleware))
 
     def _patch_app(self, app):
         # monkey patch the app!
+        app.handle_request = self.wrap_handle_request(app)
         app._run_request_middleware = self._run_request_middleware
         app._run_response_middleware = self._run_response_middleware
         app.listener('before_server_start')(self._on_before_server_start)
@@ -631,6 +676,7 @@ class SanicPluginsFramework(object):
         self._post_request_middleware = deque()
         self._pre_response_middleware = deque()
         self._post_response_middleware = deque()
+        self._cleanup_middleware = deque()
         self._contexts = ContextDict(self, None)
         self._contexts['shared'] = ContextDict(self, None, {'app': app})
         self._contexts['_plugins'] = ContextDict(self, None, {'spf': self})

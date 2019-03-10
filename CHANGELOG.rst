@@ -1,6 +1,14 @@
 Sanic Plugins Framework
 =======================
 
+0.7.0
+-----
+- Added a new type of middleware called "cleanup" middleware
+
+  - It Runs after response middleware, whether response is generated or not, and even if there was errors.
+- Moved the request-context removal process to run in the "cleanup" middleware step, because sometimes Response middleware is not run, eg. if Response is None (like in the case of a Websocket route), then Response Middleware will never fire.
+- Cleanup middleware can be used to do per-request cleanup to prevent memory leaks.
+
 0.6.7
 -----
 - A critical fix for plugin-private-request contexts. They were always overwriting the shared request context when they were created.
