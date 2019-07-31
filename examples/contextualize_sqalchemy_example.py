@@ -1,7 +1,7 @@
 from sanic import Sanic
 from sanic.response import text
 from spf import SanicPluginsFramework
-from plugins.contextualize import instance as contextualize
+from spf.plugins.contextualize import instance as contextualize
 app = Sanic(__name__)
 spf = SanicPluginsFramework(app)
 
@@ -44,4 +44,4 @@ def index(request, context):
 _ = spf.register_plugin(contextualize)
 
 if __name__ == "__main__":
-    app.run("127.0.0.1", port=8098, debug=True)
+    app.run("127.0.0.1", port=8098, debug=True, auto_reload=False)

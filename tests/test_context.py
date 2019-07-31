@@ -1,8 +1,8 @@
 import pickle
-from spf.context import ContextDict
+from spf.context import SanicContext
 
 def test_context_set_contains_get(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     context.set("t1", "hello world")
     assert "t1" in context
     assert context.get("t1") == "hello world"
@@ -15,7 +15,7 @@ def test_context_set_contains_get(spf):
         assert len(exceptions) > 0
 
 def test_context_get_private_from_slots(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     context.set("t1", "hello world")
     d = context.__getattr__('_dict')
     d2 = getattr(context, '_dict')
@@ -24,7 +24,7 @@ def test_context_get_private_from_slots(spf):
     assert d == d2
 
 def test_context_items_keys_values(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     context["t1"] = "hello world"
     context["t2"] = "hello 2"
     items = context.items()
@@ -37,7 +37,7 @@ def test_context_items_keys_values(spf):
     assert "hello world" in list(vals)
 
 def test_context_pickle(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     child_context = context.create_child_context()
     child_context['t1'] = "hello world"
     p_bytes = pickle.dumps(child_context)
@@ -45,11 +45,11 @@ def test_context_pickle(spf):
     # the spf and the parent context are not the same as before, because
     # their state got pickled and unpicked too
     assert un_p._spf != spf
-    assert un_p._parent_context != context
+    assert un_p._parent_hd != context
     assert un_p['t1'] == "hello world"
 
 def test_context_replace(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     child_context = context.create_child_context()
     context['t1'] = "hello world"
     assert child_context['t1'] == "hello world"
@@ -60,7 +60,7 @@ def test_context_replace(spf):
     assert context['t1'] == "goodbye world"
 
 def test_context_update(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     child_context = context.create_child_context()
     context['t1'] = "hello world"
     child_context['t2'] = "hello2"
@@ -70,7 +70,7 @@ def test_context_update(spf):
     assert child_context['t2'] == "test2"
 
 def test_context_del(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     context.set(1, "1")
     context.set(2, "2")
     context.set(3, "3")
@@ -88,25 +88,25 @@ def test_context_del(spf):
         assert len(exceptions) > 0
 
 def test_context_str(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     context['t1'] = "hello world"
     s1 = str(context)
-    assert s1 == "ContextDict({'t1': 'hello world'})"
+    assert s1 == "SanicContext({'t1': 'hello world'})"
 
 def test_context_repr(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     context['t1'] = "hello world"
     s1 = repr(context)
-    assert s1 == "ContextDict({'t1': 'hello world'})"
+    assert s1 == "SanicContext({'t1': 'hello world'})"
 
 def test_recursive_dict(spf):
-    context = ContextDict(spf, None)
+    context = SanicContext(spf, None)
     context['t1'] = "hello world"
     c2 = context.create_child_context()
     c2['t2'] = "hello 2"
     c3 = c2.create_child_context()
     c3['t3'] = "hello 3"
-    context._parent_context = c3  # This is dodgy, why would anyone do this?
+    context._parent_hd = c3  # This is dodgy, why would anyone do this?
     exceptions = []
     try:
         _ = c2['t4']

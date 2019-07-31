@@ -59,4 +59,4 @@ def index2(request, args, context):
 
 
 if __name__ == "__main__":
-    app.run("127.0.0.1", port=8098, debug=True)
+    app.run("127.0.0.1", port=8098, debug=True, auto_reload=False)

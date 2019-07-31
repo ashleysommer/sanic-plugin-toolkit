@@ -1,6 +1,23 @@
 Sanic Plugins Framework
 =======================
 
+0.8.0
+-----
+- Added support for a spf config file
+
+  - This is in the python configparser format, it is like an INI file.
+  - See the config file example in /examples/ for how to use it.
+
+- Added ability to get a plugin assoc object from SPF, simply by asking for the plugin name.
+
+  - This is to facilitate pulling the assoc object from when a plugin was registered via the config file
+
+- A new way of advertising sanic plugins using setup.py entrypoints is defined.
+
+  - We use it in this project to advertise the 'Contextualize' plugin.
+
+- Fixed some example files.
+
 0.7.0
 -----
 - Added a new type of middleware called "cleanup" middleware

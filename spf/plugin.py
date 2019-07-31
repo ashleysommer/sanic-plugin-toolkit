@@ -281,7 +281,7 @@ class SanicPlugin(object):
             assert e.args and len(e.args) > 1
             assoc = e.args[1]
         (plugin, reg) = assoc
-        inst = spf.get_plugin(plugin)  # plugin may not actually be registered
+        inst = spf.get_plugin_inst(plugin)  # plugin may not actually be registered
         # registered might be True, False or None at this point
         regd = True if inst else None
         if regd is True:
@@ -327,7 +327,7 @@ class SanicPlugin(object):
                 nonlocal req_middleware, resp_middleware, f, args, kwargs
                 # the plugin was not registered on the app, it might be now
                 if regd is None:
-                    _inst = spf.get_plugin(plugin)
+                    _inst = spf.get_plugin_inst(plugin)
                     regd = _inst is not None
 
                 context = plugin.get_context_from_spf(spf)

@@ -272,4 +272,4 @@ class Contextualize(SanicPlugin):
         super(Contextualize, self).__init__(*args, **kwargs)
 
 
-instance = Contextualize()
+instance = contextualize = Contextualize()

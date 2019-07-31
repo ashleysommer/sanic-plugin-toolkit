@@ -48,6 +48,10 @@ setup(
                 "so you don't have to.",
     long_description=long_description,
     packages=['spf', 'spf.plugins'],
+    entry_points={
+        'sanic_plugins':
+            ['Contextualize = spf.plugins.contextualize:instance']
+    },
     zip_safe=False,
     include_package_data=True,
     platforms='any',

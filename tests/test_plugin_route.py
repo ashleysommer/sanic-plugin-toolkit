@@ -5,7 +5,7 @@ from sanic.testing import HOST, PORT
 from spf import SanicPluginsFramework, SanicPlugin
 import pytest
 
-from spf.context import ContextDict
+from spf.context import HierDict
 
 
 class TestPlugin(SanicPlugin):
@@ -46,7 +46,7 @@ def test_plugin_route_context(spf):
     test_plugin = TestPlugin()
 
     async def handler(request, context):
-        assert isinstance(context, ContextDict)
+        assert isinstance(context, HierDict)
         shared = context.get('shared', None)
         assert shared is not None
         shared_request = shared.get('request', None)
@@ -54,7 +54,7 @@ def test_plugin_route_context(spf):
         req_id = id(request)
         shared_request = shared_request.get(req_id, None)
         assert shared_request is not None
-        assert isinstance(shared_request, ContextDict)
+        assert isinstance(shared_request, HierDict)
         r2 = shared_request.get('request', None)
         assert r2 is not None
         assert r2 == request
@@ -63,7 +63,7 @@ def test_plugin_route_context(spf):
         assert priv_request is not None
         priv_request = priv_request.get(req_id, None)
         assert priv_request is not None
-        assert isinstance(priv_request, ContextDict)
+        assert isinstance(priv_request, HierDict)
         r3 = priv_request.get('request', None)
         assert r3 is not None
         assert r3 == request

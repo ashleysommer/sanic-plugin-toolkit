@@ -1,3 +1,5 @@
+import pickle
+
 from sanic import Sanic
 from spf import SanicPlugin, SanicPluginsFramework
 from sanic.response import text
@@ -55,7 +57,7 @@ app = Sanic(__name__)
 mp = MyPlugin(app)
 spf = SanicPluginsFramework(app)
 try:
-    assoc_reg = spf.register_plugin(mp)  # already registered! (line 55)
+    assoc_reg = spf.register_plugin(MyPlugin)  # already registered! (line 55)
 except ValueError as ve:
     assoc_reg = ve.args[1]
 
@@ -64,6 +66,6 @@ def index(request):
     return text("hello world")
 
 if __name__ == "__main__":
-    app.run("127.0.0.1", port=8098, debug=True)
+    app.run("127.0.0.1", port=8098, debug=True, workers=2, auto_reload=False)
 
 

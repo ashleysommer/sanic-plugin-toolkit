@@ -9,12 +9,16 @@ import re
 from sanic import Sanic, Blueprint
 from sanic.log import logger
 from uuid import uuid1
-from spf.context import ContextDict
+
+from spf.config import load_config_file
+from spf.context import SanicContext
 from spf.plugin import SanicPlugin, PluginRegistration
 
 module = sys.modules[__name__]
 module.consts = CONSTS = dict()
-CONSTS["APP_CONFIG_KEY"] = APP_CONFIG_KEY = "__SPF_INSTANCE"
+CONSTS["APP_CONFIG_INSTANCE_KEY"] = APP_CONFIG_INSTANCE_KEY = "__SPF_INSTANCE"
+CONSTS["SPF_LOAD_INI_KEY"] = SPF_LOAD_INI_KEY = "SPF_LOAD_INI"
+CONSTS["SPF_INI_FILE_KEY"] = SPF_INI_FILE_KEY = "SPF_INI_FILE"
 
 CRITICAL = 50
 ERROR = 40
@@ -52,6 +56,21 @@ class SanicPluginsFramework(object):
             message = "{:s}: {:s}".format(str(n), str(message))
         return logger.log(level, message, *args, **kwargs)
 
+    def debug(self, message, reg=None, *args, **kwargs):
+        return self.log(DEBUG, message=message, reg=reg, *args, **kwargs)
+
+    def info(self, message, reg=None, *args, **kwargs):
+        return self.log(INFO, message=message, reg=reg, *args, **kwargs)
+
+    def warning(self, message, reg=None, *args, **kwargs):
+        return self.log(WARNING, message=message, reg=reg, *args, **kwargs)
+
+    def error(self, message, reg=None, *args, **kwargs):
+        return self.log(ERROR, message=message, reg=reg, *args, **kwargs)
+
+    def critical(self, message, reg=None, *args, **kwargs):
+        return self.log(CRITICAL, message=message, reg=reg, *args, **kwargs)
+
     def url_for(self, view_name, *args, reg=None, **kwargs):
         if reg is not None:
             (spf, name, url_prefix) = reg
@@ -63,21 +82,38 @@ class SanicPluginsFramework(object):
             view_name = "{}.{}".format(app.name, view_name)
         return app.url_for(view_name, *args, **kwargs)
 
-    def get_plugin(self, plugin):
-        reg = plugin.find_plugin_registration(self)
-        (_, name, _) = reg
+    def _get_spf_plugin(self, plugin):
+        if isinstance(plugin, str):
+            if plugin not in self._plugin_names:
+                self.warning("Cannot lookup that plugin by its name.")
+                return None
+            name = plugin
+        else:
+            reg = plugin.find_plugin_registration(self)
+            (_, name, _) = reg
         _p_context = self._plugins_context
         try:
             _plugin_reg = _p_context[name]
         except KeyError as k:
-            self.log(WARNING, "Plugin not found!")
+            self.warning("Plugin not found!")
             raise k
+        return _plugin_reg
+
+    def get_plugin_inst(self, plugin):
+        _plugin_reg = self._get_spf_plugin(plugin)
         try:
             inst = _plugin_reg['instance']
         except KeyError:
-            self.log(WARNING, "Plugin is not registered properly")
+            self.warning("Plugin is not registered properly")
             inst = None
         return inst
+
+    def get_plugin_assoc(self, plugin):
+        _plugin_reg = self._get_spf_plugin(plugin)
+        p = _plugin_reg['instance']
+        reg = _plugin_reg['reg']
+        associated_tuple = p.AssociatedTuple
+        return associated_tuple(p, reg)
 
     def register_plugin(self, plugin, *args, name=None, skip_reg=False,
                         **kwargs):
@@ -144,7 +180,7 @@ class SanicPluginsFramework(object):
                                "spf, maybe under a different name?")
         self._plugin_names.add(name)
         shared_context = self.shared_context
-        self._contexts[name] = context = ContextDict(
+        self._contexts[name] = context = SanicContext(
             self, shared_context, {'shared': shared_context})
         _p_context = self._plugins_context
         _plugin_reg = _p_context.get(name, None)
@@ -416,32 +452,32 @@ class SanicPluginsFramework(object):
 
     def create_temporary_request_context(self, request):
         request_hash = id(request)
-        new_ctx = ContextDict(self, None, {'id': 'shared request contexts'})
+        new_ctx = SanicContext(self, None, {'id': 'shared request contexts'})
         shared_context = self.shared_context
         shared_request = shared_context.get('request', False)
         if not shared_request:
             shared_context['request'] = shared_request = new_ctx
         shared_request[request_hash] =\
-            ContextDict(self, None,
-                        {'request': request,
-                         'id': "shared request context for request {}"
-                               .format(id(request))})
+            SanicContext(self, None,
+                         {'request': request,
+                          'id': "shared request context for request {}"
+                          .format(id(request))})
         for name, _p in self._plugins_context.items():
-            if not (isinstance(_p, ContextDict) and 'instance' in _p
+            if not (isinstance(_p, SanicContext) and 'instance' in _p
                     and isinstance(_p['instance'], SanicPlugin)):
                 continue
-            if not('context' in _p and isinstance(_p['context'], ContextDict)):
+            if not('context' in _p and isinstance(_p['context'], SanicContext)):
                 continue
             _p_context = _p['context']
             if 'request' not in _p_context:
-                _p_context['request'] = p_request = ContextDict(
+                _p_context['request'] = p_request = SanicContext(
                     self, None, {'id': 'private request contexts'})
             else:
                 p_request = _p_context.request
             p_request[request_hash] =\
-                ContextDict(self, None, {'request': request,
-                    'id': "private request context for {} on request {}"
-                          .format(name, id(request))})
+                SanicContext(self, None, {'request': request, 'id':
+                             "private request context for {} on request {}"
+                                          .format(name, id(request))})
 
     def delete_temporary_request_context(self, request):
         request_hash = id(request)
@@ -454,10 +490,10 @@ class SanicPluginsFramework(object):
         except KeyError:
             pass
         for name, _p in self._plugins_context.items():
-            if not (isinstance(_p, ContextDict) and 'instance' in _p
+            if not (isinstance(_p, SanicContext) and 'instance' in _p
                     and isinstance(_p['instance'], SanicPlugin)):
                 continue
-            if not('context' in _p and isinstance(_p['context'], ContextDict)):
+            if not('context' in _p and isinstance(_p['context'], SanicContext)):
                 continue
             _p_context = _p['context']
             try:
@@ -557,18 +593,16 @@ class SanicPluginsFramework(object):
         self.delete_temporary_request_context(request)
         return None
 
-    def _on_before_server_start(self, app, loop=None):
+    def _on_before_server_start(self, app, loop):
         if not isinstance(self._app, Blueprint):
             assert self._app == app,\
                     "Sanic Plugins Framework is not assigned to the correct " \
                     "Sanic App!"
-        assert loop,\
-            "Sanic server did not give us a loop to use! " \
-            "Check for app updates, you might out of date."
-        self._loop = loop
         if self._running:
             # during testing, this will be called _many_ times.
             return  # Ignore if this is already called.
+        self._loop = loop
+
         self._running = True
         # sort and freeze these
         self._pre_request_middleware = \
@@ -588,7 +622,7 @@ class SanicPluginsFramework(object):
         app._run_request_middleware = self._run_request_middleware
         app._run_response_middleware = self._run_response_middleware
         app.listener('before_server_start')(self._on_before_server_start)
-        app.config[APP_CONFIG_KEY] = self
+        app.config[APP_CONFIG_INSTANCE_KEY] = self
 
     def _patch_blueprint(self, bp):
         # monkey patch the blueprint!
@@ -661,7 +695,7 @@ class SanicPluginsFramework(object):
 
             orig_register(app, options)
         bp.register = update_wrapper(partial(bp_register, bp), orig_register)
-        setattr(bp, APP_CONFIG_KEY, self)
+        setattr(bp, APP_CONFIG_INSTANCE_KEY, self)
         bp.listener('before_server_start')(self._on_before_server_start)
 
     @classmethod
@@ -677,9 +711,9 @@ class SanicPluginsFramework(object):
         self._pre_response_middleware = deque()
         self._post_response_middleware = deque()
         self._cleanup_middleware = deque()
-        self._contexts = ContextDict(self, None)
-        self._contexts['shared'] = ContextDict(self, None, {'app': app})
-        self._contexts['_plugins'] = ContextDict(self, None, {'spf': self})
+        self._contexts = SanicContext(self, None)
+        self._contexts['shared'] = SanicContext(self, None, {'app': app})
+        self._contexts['_plugins'] = SanicContext(self, None, {'spf': self})
         return self
 
     def __new__(cls, app, *args, **kwargs):
@@ -690,14 +724,14 @@ class SanicPluginsFramework(object):
         # An app _must_ only have one spf instance associated with it.
         # If there is already one registered on the app, return that one.
         try:
-            instance = app.config[APP_CONFIG_KEY]
+            instance = app.config[APP_CONFIG_INSTANCE_KEY]
             assert isinstance(instance, cls),\
                 "This app is already registered to a different type of " \
                 "Sanic Plugins Framework!"
             return instance
         except AttributeError:  # app must then be a blueprint
             try:
-                instance = getattr(app, APP_CONFIG_KEY)
+                instance = getattr(app, APP_CONFIG_INSTANCE_KEY)
                 assert isinstance(instance, cls),\
                     "This Blueprint is already registered to a different " \
                     "type of Sanic Plugins Framework!"
@@ -711,6 +745,15 @@ class SanicPluginsFramework(object):
             self._patch_blueprint(app)
         else:
             self._patch_app(app)
+        config = getattr(app, 'config', None)
+        if config:
+            load_ini = config.get(SPF_LOAD_INI_KEY, True)
+            if load_ini:
+                ini_file = config.get(SPF_INI_FILE_KEY, 'spf.ini')
+                try:
+                    load_config_file(self, app, ini_file)
+                except FileNotFoundError:
+                    pass
         return self
 
     def __init__(self, *args, **kwargs):

@@ -138,11 +138,32 @@ The Application developer can use your plugin in their code like this:
 
     app = Sanic(__name__)
     spf = SanicPluginsFramework(app)
-    spf.register_plugin(my_plugin)
+    assoc = spf.register_plugin(my_plugin)
 
     # ... rest of user app here
 
-Or if the developer prefers to do it the old way, (the Flask way), they can still do it like this:
+
+There is support for using a config file to define the list of plugins to load when SPF is added to an App.
+
+.. code:: ini
+
+    # Source: spf.ini
+    [plugins]
+    MyPlugin
+    AnotherPlugin=ExampleArg,False,KWArg1=True,KWArg2=33.3
+
+.. code:: python
+
+    # Source: app.py
+    app = Sanic(__name__)
+    app.config['SPF_LOAD_INI'] = True
+    app.config['SPF_INI_FILE'] = 'spf.ini'
+    spf = SanicPluginsFramework(app)
+
+    # We can get the assoc object from SPF, it is already registered
+    assoc = spf.get_plugin_assoc('MyPlugin')
+
+Or if the developer prefers to do it the old way, (like the Flask way), they can still do it like this:
 
 .. code:: python
 
@@ -154,7 +175,7 @@ Or if the developer prefers to do it the old way, (the Flask way), they can stil
     app = Sanic(__name__)
     # this magically returns your previously initialized instance
     # from your plugin module, if it is named `my_plugin` or `instance`.
-    reg = MyPlugin(app)
+    assoc = MyPlugin(app)
 
     # ... rest of user app here
 
