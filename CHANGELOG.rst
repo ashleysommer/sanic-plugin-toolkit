@@ -1,6 +1,11 @@
 Sanic Plugins Framework
 =======================
 
+0.8.1
+-----
+- Plugin names in the config file are now case insensitive
+- Plugin names exported using entrypoints are now case insensitive
+
 0.8.0
 -----
 - Added support for a spf config file

@@ -8,16 +8,17 @@ import configparser
 import pkg_resources
 import importlib
 
+
 def _find_config_file(filename):
-   abs = os.path.abspath(filename)
-   if os.path.isfile(abs):
-       return abs
-   raise FileNotFoundError(filename)
+    abs = os.path.abspath(filename)
+    if os.path.isfile(abs):
+        return abs
+    raise FileNotFoundError(filename)
+
 
 def _get_config_defaults():
-    return {
+    return {}
 
-    }
 
 def _find_advertised_plugins(spf):
     plugins = {}
@@ -41,6 +42,7 @@ def _find_advertised_plugins(spf):
                 continue
             p_dict['instance'] = inst
         plugins[name] = p_dict
+        plugins[str(name).casefold()] = p_dict
     return plugins
 
 
@@ -82,6 +84,7 @@ def _transform_option_dict(options):
     args = tuple(args)
     return args, kwargs
 
+
 def _register_advertised_plugin(spf, app, plugin_def, *args, **kwargs):
     name = plugin_def['name']
     spf.info("Found advertised plugin {}.".format(name))
@@ -94,7 +97,12 @@ def _register_advertised_plugin(spf, app, plugin_def, *args, **kwargs):
 
 
 def _try_register_other_plugin(spf, app, plugin_name, *args, **kwargs):
-    raise NotImplementedError(_try_register_other_plugin)
+    try:
+        module = importlib.import_module(plugin_name)
+    except ImportError:
+        raise RuntimeError("Do not know how to register plugin: {}"
+                           .format(plugin_name))
+    return spf.register_plugin(module, *args, **kwargs)
 
 
 def _register_plugins(spf, app, config_plugins):
@@ -107,11 +115,12 @@ def _register_plugins(spf, app, config_plugins):
         else:
             args = tuple()
             kwargs = {}
-        if plugin in advertised_plugins:
-            assoc = _register_advertised_plugin(spf, app, advertised_plugins[plugin], *args, **kwargs)
+        p_fold = str(plugin).casefold()
+        if p_fold in advertised_plugins:
+            assoc = _register_advertised_plugin(spf, app, advertised_plugins[p_fold], *args, **kwargs)
         else:
             assoc = _try_register_other_plugin(spf, app, plugin, *args, **kwargs)
-        plugin, reg = assoc
+        _p, reg = assoc
         registered_plugins[reg.plugin_name] = assoc
     return registered_plugins
 
