@@ -593,7 +593,7 @@ class SanicPluginsFramework(object):
         self.delete_temporary_request_context(request)
         return None
 
-    def _on_before_server_start(self, app, loop):
+    def _on_server_start(self, app, loop):
         if not isinstance(self._app, Blueprint):
             assert self._app == app,\
                     "Sanic Plugins Framework is not assigned to the correct " \
@@ -621,7 +621,7 @@ class SanicPluginsFramework(object):
         app.handle_request = self.wrap_handle_request(app)
         app._run_request_middleware = self._run_request_middleware
         app._run_response_middleware = self._run_response_middleware
-        app.listener('before_server_start')(self._on_before_server_start)
+        app.listener('after_server_start')(self._on_server_start)
         app.config[APP_CONFIG_INSTANCE_KEY] = self
 
     def _patch_blueprint(self, bp):
@@ -696,7 +696,7 @@ class SanicPluginsFramework(object):
             orig_register(app, options)
         bp.register = update_wrapper(partial(bp_register, bp), orig_register)
         setattr(bp, APP_CONFIG_INSTANCE_KEY, self)
-        bp.listener('before_server_start')(self._on_before_server_start)
+        bp.listener('after_server_start')(self._on_server_start)
 
     @classmethod
     def _recreate(cls, app):

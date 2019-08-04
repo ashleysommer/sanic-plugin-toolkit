@@ -6,7 +6,7 @@ app = Sanic(__name__)
 spf = SanicPluginsFramework(app)
 
 
-@contextualize.listener('before_server_start')
+@contextualize.listener('after_server_start')
 async def setup_db(app, loop, context):
     from sqlalchemy import create_engine
     shared_context = context.shared

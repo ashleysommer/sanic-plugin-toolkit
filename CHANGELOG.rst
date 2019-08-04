@@ -1,6 +1,14 @@
 Sanic Plugins Framework
 =======================
 
+0.8.2
+-----
+- Change all usages of "before_server_start" to "after_server_start"
+
+  - The logic is basically the same, and this ensures compatibility with external servers, like ASGI mode, and using gunicorn runner, etc.
+
+
+
 0.8.1
 -----
 - Plugin names in the config file are now case insensitive
