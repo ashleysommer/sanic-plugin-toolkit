@@ -431,10 +431,6 @@ class SanicPlugin(object):
         # Ignore it on subsequent times
         if self._initialized:
             return
-        assert len(args) < 1,\
-            "Unexpected arguments passed to this Sanic Plugins."
-        assert len(kwargs) < 1,\
-            "Unexpected keyword arguments passed to this Sanic Plugins."
         super(SanicPlugin, self).__init__(*args, **kwargs)
         self._routes = []
         self._ws = []
