@@ -1,6 +1,7 @@
 coverage
 flake8
 pytest==3.3.2
+attrs<19.2.0
 tox
 aiohttp>=2.3.0,<=3.2.1
-sanic>=0.8.3
+sanic>=18.12.0

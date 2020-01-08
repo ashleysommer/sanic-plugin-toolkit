@@ -1,6 +1,16 @@
 Sanic Plugins Framework
 =======================
 
+0.9.0.b1
+-----------
+- New minimum supported sanic version is 18.12LTS
+- Fixed bugs with Sanic 19.12
+- Fixed registering plugin routes on blueprints
+- Tested more on blueprints
+- Added python3.7 tests to tox, and travis
+- Max supported sanic version for this release series is unknown for now.
+
+
 0.8.2.post1
 -----------
 - Explicitly set max Sanic version supported to 19.6.3

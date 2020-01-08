@@ -4,9 +4,10 @@ from asyncio import CancelledError
 from functools import partial, update_wrapper
 from inspect import isawaitable, ismodule
 from collections import deque
+from distutils.version import LooseVersion
 import importlib
 import re
-from sanic import Sanic, Blueprint
+from sanic import Sanic, Blueprint, __version__ as sanic_version
 from sanic.log import logger
 from uuid import uuid1
 
@@ -19,6 +20,10 @@ module.consts = CONSTS = dict()
 CONSTS["APP_CONFIG_INSTANCE_KEY"] = APP_CONFIG_INSTANCE_KEY = "__SPF_INSTANCE"
 CONSTS["SPF_LOAD_INI_KEY"] = SPF_LOAD_INI_KEY = "SPF_LOAD_INI"
 CONSTS["SPF_INI_FILE_KEY"] = SPF_INI_FILE_KEY = "SPF_INI_FILE"
+CONSTS["SANIC_19_12_0"] = SANIC_19_12_0 = LooseVersion("19.12.0")
+
+# Currently installed sanic version in this environment
+SANIC_VERSION = LooseVersion(sanic_version)
 
 CRITICAL = 50
 ERROR = 40
@@ -215,6 +220,9 @@ class SanicPluginsFramework(object):
     @staticmethod
     def _register_route_helper(r, _spf, plugin, context, _p_name,
                                _url_prefix):
+        # Prepend the plugin URI prefix if available
+        uri = _url_prefix + r.uri if _url_prefix else r.uri
+        uri = uri[1:] if uri.startswith('//') else uri
         # attach the plugin name to the handler so that it can be
         # prefixed properly in the router
         _app = _spf._app
@@ -223,17 +231,21 @@ class SanicPluginsFramework(object):
             # So we identify ourselves here a different way.
             handler_name = r.handler.__name__
             r.handler.__name__ = "{}.{}".format(_p_name, handler_name)
+            _spf._plugin_register_bp_route(
+                r.handler, plugin, context, uri, *r.args, **r.kwargs)
         else:
+            # app is not a blueprint, but we use the __blueprintname__
+            # property to store the plugin name
             r.handler.__blueprintname__ = _p_name
-        # Prepend the plugin URI prefix if available
-        uri = _url_prefix + r.uri if _url_prefix else r.uri
-        uri = uri[1:] if uri.startswith('//') else uri
-        _spf._plugin_register_route(
-            r.handler, plugin, context, uri, *r.args, **r.kwargs)
+            _spf._plugin_register_app_route(
+                r.handler, plugin, context, uri, *r.args, **r.kwargs)
 
     @staticmethod
     def _register_websocket_route_helper(w, _spf, plugin, context, _p_name,
                                          _url_prefix):
+        # Prepend the plugin URI prefix if available
+        uri = _url_prefix + w.uri if _url_prefix else w.uri
+        uri = uri[1:] if uri.startswith('//') else uri
         # attach the plugin name to the handler so that it can be
         # prefixed properly in the router
         _app = _spf._app
@@ -242,13 +254,14 @@ class SanicPluginsFramework(object):
             # So we identify ourselves here a different way.
             handler_name = w.handler.__name__
             w.handler.__name__ = "{}.{}".format(_p_name, handler_name)
+            _spf._plugin_register_bp_websocket_route(
+                w.handler, plugin, context, uri, *w.args, **w.kwargs)
         else:
+            # app is not a blueprint, but we use the __blueprintname__
+            # property to store the plugin name
             w.handler.__blueprintname__ = _p_name
-        # Prepend the plugin URI prefix if available
-        uri = _url_prefix + w.uri if _url_prefix else w.uri
-        uri = uri[1:] if uri.startswith('//') else uri
-        _spf._plugin_register_websocket_route(
-            w.handler, plugin, context, uri, *w.args, **w.kwargs)
+            _spf._plugin_register_app_websocket_route(
+                w.handler, plugin, context, uri, *w.args, **w.kwargs)
 
     @staticmethod
     def _register_static_helper(s, _spf, plugin, context, _p_name,
@@ -321,31 +334,58 @@ class SanicPluginsFramework(object):
 
         return reg
 
-    def _plugin_register_route(self, handler, plugin, context, uri, *args,
-                               with_context=False, **kwargs):
+    def _plugin_register_app_route(self, r_handler, plugin, context, uri,
+                                   *args, with_context=False, **kwargs):
         if with_context:
-            try:
-                bp = handler.__blueprintname__
-            except AttributeError:
-                bp = False
-            handler = update_wrapper(partial(handler, context=context),
-                                     handler)
-            if bp:
-                handler.__blueprintname__ = bp
-        return self._app.route(uri, *args, **kwargs)(handler)
+            bp = r_handler.__blueprintname__
+            r_handler = update_wrapper(partial(r_handler, context=context),
+                                       r_handler)
+            r_handler.__blueprintname__ = bp
+        if SANIC_19_12_0 <= SANIC_VERSION:
+            names, r_handler = self._app.route(uri, *args, **kwargs)(r_handler)
+        else:
+            r_handler = self._app.route(uri, *args, **kwargs)(r_handler)
+        return r_handler
 
-    def _plugin_register_websocket_route(self, handler, plugin, context, uri,
-                                         *args, with_context=False, **kwargs):
+    def _plugin_register_bp_route(self, r_handler, plugin, context, uri, *args,
+                                  with_context=False, **kwargs):
+        bp = self._app
         if with_context:
-            try:
-                bp = handler.__blueprintname__
-            except AttributeError:
-                bp = False
-            handler = update_wrapper(partial(handler, context=context),
-                                     handler)
-            if bp:
-                handler.__blueprintname__ = bp
-        return self._app.websocket(uri, *args, **kwargs)(handler)
+            r_handler = update_wrapper(partial(r_handler, context=context),
+                                       r_handler)
+            # __blueprintname__ gets added in the register() routine
+        # When app is a blueprint, it doesn't register right away, it happens
+        # in the blueprint.register() routine.
+        r_handler = bp.route(uri, *args, **kwargs)(r_handler)
+        return r_handler
+
+    def _plugin_register_app_websocket_route(self, w_handler, plugin, context,
+                                             uri, *args, with_context=False,
+                                             **kwargs):
+        if with_context:
+            bp = w_handler.__blueprintname__
+            w_handler = update_wrapper(partial(w_handler, context=context),
+                                       w_handler)
+            w_handler.__blueprintname__ = bp
+        if SANIC_19_12_0 <= SANIC_VERSION:
+            names, w_handler = self._app.websocket(uri, *args, **kwargs)(
+                w_handler)
+        else:
+            w_handler = self._app.websocket(uri, *args, **kwargs)(w_handler)
+        return w_handler
+
+    def _plugin_register_bp_websocket_route(self, w_handler, plugin, context,
+                                            uri, *args, with_context=False,
+                                            **kwargs):
+        bp = self._app
+        if with_context:
+            w_handler = update_wrapper(partial(w_handler, context=context),
+                                       w_handler)
+            # __blueprintname__ gets added in the register() routine
+        # When app is a blueprint, it doesn't register right away, it happens
+        # in the blueprint.register() routine.
+        w_handler = bp.websocket(uri, *args, **kwargs)(w_handler)
+        return w_handler
 
     def _plugin_register_static(self, uri, file_or_dir, plugin, context,
                                 *args, **kwargs):
@@ -531,7 +571,7 @@ class SanicPluginsFramework(object):
         return update_wrapper(partial(
             self._handle_request, orig_handle_request), self._handle_request)
 
-    async def _run_request_middleware(self, request):
+    async def _run_request_middleware_18_12(self, request):
         assert self._running,\
             "App must be running before you can run middleware!"
         self.create_temporary_request_context(request)
@@ -558,7 +598,38 @@ class SanicPluginsFramework(object):
                     return response
         return None
 
-    async def _run_response_middleware(self, request, response):
+    async def _run_request_middleware_19_12(self, request, request_name=None):
+        assert self._running,\
+            "App must be running before you can run middleware!"
+        self.create_temporary_request_context(request)
+        if self._pre_request_middleware:
+            for (_pri, _ins, middleware) in self._pre_request_middleware:
+                response = middleware(request)
+                if isawaitable(response):
+                    response = await response
+                if response:
+                    return response
+        app = self._app
+        named_middleware = app.named_request_middleware.get(request_name,
+                                                            deque())
+        applicable_middleware = app.request_middleware + named_middleware
+        if applicable_middleware:
+            for middleware in applicable_middleware:
+                response = middleware(request)
+                if isawaitable(response):
+                    response = await response
+                if response:
+                    return response
+        if self._post_request_middleware:
+            for (_pri, _ins, middleware) in self._post_request_middleware:
+                response = middleware(request)
+                if isawaitable(response):
+                    response = await response
+                if response:
+                    return response
+        return None
+
+    async def _run_response_middleware_18_12(self, request, response):
         if self._pre_response_middleware:
             for (_pri, _ins, middleware) in self._pre_response_middleware:
                 _response = middleware(request, response)
@@ -569,6 +640,38 @@ class SanicPluginsFramework(object):
                     break
         if self._app.response_middleware:
             for middleware in self._app.response_middleware:
+                _response = middleware(request, response)
+                if isawaitable(_response):
+                    _response = await _response
+                if _response:
+                    response = _response
+                    break
+        if self._post_response_middleware:
+            for (_pri, _ins, middleware) in self._post_response_middleware:
+                _response = middleware(request, response)
+                if isawaitable(_response):
+                    _response = await _response
+                if _response:
+                    response = _response
+                    break
+        return response
+
+    async def _run_response_middleware_19_12(self, request, response,
+                                             request_name=None):
+        if self._pre_response_middleware:
+            for (_pri, _ins, middleware) in self._pre_response_middleware:
+                _response = middleware(request, response)
+                if isawaitable(_response):
+                    _response = await _response
+                if _response:
+                    response = _response
+                    break
+        app = self._app
+        named_middleware = app.named_response_middleware.get(request_name,
+                                                             deque())
+        applicable_middleware = app.response_middleware + named_middleware
+        if applicable_middleware:
+            for middleware in applicable_middleware:
                 _response = middleware(request, response)
                 if isawaitable(_response):
                     _response = await _response
@@ -622,9 +725,12 @@ class SanicPluginsFramework(object):
     def _patch_app(self, app):
         # monkey patch the app!
         app.handle_request = self.wrap_handle_request(app)
-        app._run_request_middleware = self._run_request_middleware
-        app._run_response_middleware = self._run_response_middleware
-        app.listener('after_server_start')(self._on_server_start)
+        if SANIC_19_12_0 <= SANIC_VERSION:
+            app._run_request_middleware = self._run_request_middleware_19_12
+            app._run_response_middleware = self._run_response_middleware_19_12
+        else:
+            app._run_request_middleware = self._run_request_middleware_18_12
+            app._run_response_middleware = self._run_response_middleware_18_12
         app.config[APP_CONFIG_INSTANCE_KEY] = self
 
     def _patch_blueprint(self, bp):
@@ -677,10 +783,7 @@ class SanicPluginsFramework(object):
                         break
             _spf.delete_temporary_request_context(request)
 
-        orig_register = bp.register
-
-        def bp_register(bp_self, app, options):
-            nonlocal orig_register
+        def bp_register(bp_self, orig_register, app, options):
             from sanic.blueprints import FutureMiddleware as BPFutureMW
             pre_request = BPFutureMW(run_bp_pre_request_mw, args=(),
                                      kwargs={'attach_to': 'request'})
@@ -697,9 +800,9 @@ class SanicPluginsFramework(object):
             bp_self.middlewares.append(pre_response)
 
             orig_register(app, options)
-        bp.register = update_wrapper(partial(bp_register, bp), orig_register)
+        bp.register = update_wrapper(partial(bp_register, bp, bp.register),
+                                     bp.register)
         setattr(bp, APP_CONFIG_INSTANCE_KEY, self)
-        bp.listener('after_server_start')(self._on_server_start)
 
     @classmethod
     def _recreate(cls, app):
@@ -745,9 +848,12 @@ class SanicPluginsFramework(object):
             pass
         self = cls._recreate(app)
         if isinstance(app, Blueprint):
-            self._patch_blueprint(app)
+            bp = app
+            self._patch_blueprint(bp)
+            bp.listener('after_server_start')(self._on_server_start)
         else:
             self._patch_app(app)
+            app.listener('after_server_start')(self._on_server_start)
         config = getattr(app, 'config', None)
         if config:
             load_ini = config.get(SPF_LOAD_INI_KEY, True)
