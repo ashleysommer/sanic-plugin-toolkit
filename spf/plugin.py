@@ -281,7 +281,8 @@ class SanicPlugin(object):
             assert e.args and len(e.args) > 1
             assoc = e.args[1]
         (plugin, reg) = assoc
-        inst = spf.get_plugin_inst(plugin)  # plugin may not actually be registered
+        # plugin may not actually be registered
+        inst = spf.get_plugin_inst(plugin)
         # registered might be True, False or None at this point
         regd = True if inst else None
         if regd is True:

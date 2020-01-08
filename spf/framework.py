@@ -390,7 +390,7 @@ class SanicPluginsFramework(object):
             insert_order = len(self._cleanup_middleware)
             priority_middleware = (priority, insert_order, middleware)
             assert relative is None, \
-               "A cleanup middleware cannot have relative pre or post"
+                "A cleanup middleware cannot have relative pre or post"
             self._cleanup_middleware.append(priority_middleware)
         else:  # response
             assert attach_to == "response",\
@@ -466,7 +466,8 @@ class SanicPluginsFramework(object):
             if not (isinstance(_p, SanicContext) and 'instance' in _p
                     and isinstance(_p['instance'], SanicPlugin)):
                 continue
-            if not('context' in _p and isinstance(_p['context'], SanicContext)):
+            if not('context' in _p and
+                   isinstance(_p['context'], SanicContext)):
                 continue
             _p_context = _p['context']
             if 'request' not in _p_context:
@@ -493,7 +494,8 @@ class SanicPluginsFramework(object):
             if not (isinstance(_p, SanicContext) and 'instance' in _p
                     and isinstance(_p['instance'], SanicPlugin)):
                 continue
-            if not('context' in _p and isinstance(_p['context'], SanicContext)):
+            if not ('context' in _p and
+                    isinstance(_p['context'], SanicContext)):
                 continue
             _p_context = _p['context']
             try:
@@ -519,7 +521,8 @@ class SanicPluginsFramework(object):
             logger.error(str(be))
             raise
         finally:
-            _ = await self._run_cleanup_middleware(request)
+            # noinspection PyUnusedLocal
+            _ = await self._run_cleanup_middleware(request)  # noqa: F841
             if cancelled:
                 raise cancelled
 
