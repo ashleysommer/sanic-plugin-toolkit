@@ -1,6 +1,14 @@
 Sanic Plugins Framework
 =======================
 
+0.8.2.post1
+-----------
+- Explicitly set max Sanic version supported to 19.6.3
+- This is the last SPF version to support Sanic v0.8.3
+
+  - (please update to 18.12 or greater if you are still on 0.8.3)
+
+
 0.8.2
 -----
 - Change all usages of "before_server_start" to "after_server_start"
