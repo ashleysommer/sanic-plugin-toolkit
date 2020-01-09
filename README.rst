@@ -7,6 +7,8 @@ Welcome to the Sanic Plugins Framework.
 
 **Notice:** Sanic-Plugins-Framework v0.8.2 *does not work* with Sanic v19.12. See `here <https://github.com/huge-success/sanic/issues/1749#issuecomment-571881532>`_ for more details.
 
+**Use** SPF 0.9.0.b1 if you need compatibility with Sanic v19.12.
+
 The Sanic Plugins Framework (SPF) is a lightweight python library aimed at making it as simple as possible to build
 plugins for the Sanic Async HTTP Server.
 
@@ -48,7 +50,7 @@ used for different purposes.
 - A shared context: All plugins registered in the SPF have access to a shared, persistent context object, which anyone can read and write to.
 - A per-request context: All plugins get access to a shared temporary context object anyone can read and write to that is created at the start of a request, and deleted when a request is completed.
 - A per-plugin context: All plugins get their own private persistent context object that only that plugin can read and write to.
-- A per-plugin per-request context: All plugins get a temporary context object that is created at the start of a request, and deleted when a request is completed.
+- A per-plugin per-request context: All plugins get a temporary private context object that is created at the start of a request, and deleted when a request is completed.
 
 
 Installation
@@ -81,7 +83,7 @@ A simple plugin written using the Sanic Plugins Framework will look like this:
             # do post-registration plugin init here
             # We have access to our context and the shared context now.
             context.my_private_var = "Private variable"
-            shared = c.shared
+            shared = context.shared
             shared.my_shared_var = "Shared variable"
 
     my_plugin = MyPlugin()
