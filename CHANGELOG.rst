@@ -1,10 +1,16 @@
 Sanic Plugins Framework
 =======================
 
+0.9.0
+-----------
+- Released 0.9.0 with Sanic 19.12LTS compatibility
+- Minimum supported sanic version is 18.12LTS
+
+
 0.9.0.b1
 -----------
 - New minimum supported sanic version is 18.12LTS
-- Fixed bugs with Sanic 19.12
+- Fixed bugs with Sanic 19.12LTS
 - Fixed registering plugin routes on blueprints
 - Tested more on blueprints
 - Added python3.7 tests to tox, and travis
@@ -24,7 +30,6 @@ Sanic Plugins Framework
 - Change all usages of "before_server_start" to "after_server_start"
 
   - The logic is basically the same, and this ensures compatibility with external servers, like ASGI mode, and using gunicorn runner, etc.
-
 
 
 0.8.1

@@ -57,7 +57,7 @@ app = Sanic(__name__)
 mp = MyPlugin(app)
 spf = SanicPluginsFramework(app)
 try:
-    assoc_reg = spf.register_plugin(MyPlugin)  # already registered! (line 55)
+    assoc_reg = spf.register_plugin(MyPlugin)  # already registered! (line 57)
 except ValueError as ve:
     assoc_reg = ve.args[1]
 
