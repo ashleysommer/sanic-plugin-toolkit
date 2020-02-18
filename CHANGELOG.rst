@@ -1,6 +1,11 @@
 Sanic Plugins Framework
 =======================
 
+0.9.1
+-----------
+- Fixed a problem with error reporting when a plugin is not yet registered on the SPF
+
+
 0.9.0
 -----------
 - Released 0.9.0 with Sanic 19.12LTS compatibility

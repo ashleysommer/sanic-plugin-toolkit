@@ -186,7 +186,7 @@ class SanicPlugin(object):
             (s, n, u) = reg
             if s is not None and s == spf:
                 return reg
-        return KeyError("Not found")
+        raise KeyError("Plugin registration not found")
 
     def first_plugin_context(self):
         """Returns the context is associated with the first app this plugin was
@@ -197,31 +197,46 @@ class SanicPlugin(object):
         return self.get_context_from_spf(first_spf_reg)
 
     def get_context_from_spf(self, spf):
-        rt_err = RuntimeError(
-            "Cannot use the plugin's Context before it is "
-            "registered.")
+        rt = RuntimeError("Cannot use the plugin's Context before it is "
+                          "registered.")
         if isinstance(spf, PluginRegistration):
             reg = spf
         else:
-            reg = self.find_plugin_registration(spf)
+            try:
+                reg = self.find_plugin_registration(spf)
+            except LookupError:
+                raise rt
         (s, n, u) = reg
         try:
             return s.get_context(n)
         except KeyError as k:
             raise k
         except AttributeError:
-            raise rt_err
+            raise rt
 
     def get_app_from_spf_context(self, spf):
+        rt = RuntimeError("Cannot get the app from SPF before this plugin is "
+                          "registerd on the SPF.")
         if isinstance(spf, PluginRegistration):
             reg = spf
         else:
-            reg = self.find_plugin_registration(spf)
+            try:
+                reg = self.find_plugin_registration(spf)
+            except LookupError:
+                raise rt
         context = self.get_context_from_spf(reg)
-        return context.app
+        try:
+            app = context.app
+        except (LookupError, AttributeError):
+            raise rt
+        return app
 
     def spf_resolve_url_for(self, spf, view_name, *args, **kwargs):
-        reg = self.find_plugin_registration(spf)
+        try:
+            reg = self.find_plugin_registration(spf)
+        except LookupError:
+            raise RuntimeError("Cannot resolve URL because this plugin is "
+                               "not registered on the SPF.")
         (spf, name, url_prefix) = reg
         app = self.get_app_from_spf_context(reg)
         if app is None:
@@ -234,7 +249,11 @@ class SanicPlugin(object):
         return app.url_for(constructed_name, *args, **kwargs)
 
     def log(self, spf, level, message, *args, **kwargs):
-        reg = self.find_plugin_registration(spf)
+        try:
+            reg = self.find_plugin_registration(spf)
+        except LookupError:
+            raise RuntimeError("Cannot log using this plugin, because this "
+                               "plugin is not registered on the SPF.")
         context = self.get_context_from_spf(reg)
         return context.log(level, message, *args, reg=self, **kwargs)
 
