@@ -196,7 +196,6 @@ own children.
 
     def __init__(self, *args, **kwargs):
         args = list(args)
-        args.pop(0)  # remove spf
         args.pop(0)  # remove parent
         super(HierDict, self).__init__()
 
@@ -241,6 +240,11 @@ class SanicContext(HierDict):
         self = super(SanicContext, cls).__new__(cls, parent, *args, **kwargs)
         self._spf = spf
         return self
+
+    def __init__(self, *args, **kwargs):
+        args = list(args)
+        _spf = args.pop(0)  # remove spf
+        super(SanicContext, self).__init__(*args)
 
     def __getstate__(self):
         state_dict = super(SanicContext, self).__getstate__()
