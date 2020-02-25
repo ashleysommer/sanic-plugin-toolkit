@@ -243,7 +243,8 @@ class SanicContext(HierDict):
 
     def __init__(self, *args, **kwargs):
         args = list(args)
-        _spf = args.pop(0)  # remove spf
+        # remove spf
+        _spf = args.pop(0)  # noqa: F841
         super(SanicContext, self).__init__(*args)
 
     def __getstate__(self):
