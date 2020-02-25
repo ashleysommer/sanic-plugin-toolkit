@@ -5,8 +5,8 @@ Sanic Plugins Framework
 ~~~~~~~~~~~~~~~~~~~~~~~
 Doing all of the boilerplate to create a Sanic Plugin, so you don't have to.
 
-:copyright: (c) 2017 by Ashley Sommer.
-:license: MIT, see LICENSE for more details.
+:copyright: (c) 2017-2020 by Ashley Sommer.
+:license: MIT, see LICENSE.txt for more details.
 """
 import codecs
 import os

@@ -258,3 +258,8 @@ class SanicContext(HierDict):
         parent_context = state_dict.pop('_parent_hd')
         return (SanicContext.__new__, (self.__class__, spf, parent_context),
                 state_dict)
+
+    def for_request(self, req):
+        # shortcut for context.request[id(req)]
+        requests_ctx = self.request
+        return requests_ctx[id(req)] if req else None

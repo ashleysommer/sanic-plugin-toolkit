@@ -5,7 +5,7 @@ from sanic.testing import HOST, PORT
 from spf import SanicPluginsFramework, SanicPlugin
 import pytest
 
-from spf.context import HierDict
+from spf.context import HierDict, SanicContext
 
 
 class TestPlugin(SanicPlugin):
@@ -67,6 +67,8 @@ def test_plugin_route_context(spf):
         r3 = priv_request.get('request', None)
         assert r3 is not None
         assert r3 == request
+        priv_request2 = context.for_request(request)
+        assert priv_request2 is priv_request
         assert priv_request != shared_request
         return text('OK')
 

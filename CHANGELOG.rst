@@ -1,6 +1,15 @@
 Sanic Plugins Framework
 =======================
 
+0.9.2
+-----------
+- Added a convenience feature on SanicContext class to get the request-context for a given request
+- Added correct licence file to LICENSE.txt
+
+  - Existing one was accidentally a copy of the old Sanic-CORS licence file
+  - Renamed from LICENSE to LICENSE.txt
+
+
 0.9.1
 -----------
 - Fixed a problem with error reporting when a plugin is not yet registered on the SPF
