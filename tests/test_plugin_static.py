@@ -267,7 +267,7 @@ def test_static_content_range_invalid_unit(
     request, response = app.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
-    assert response.text == "Error: {} is not a valid Range Type".format(unit)
+    assert "{} is not a valid Range Type".format(unit) in response.text
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
@@ -287,9 +287,7 @@ def test_static_content_range_invalid_start(
     request, response = app.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
-    assert response.text == "Error: '{}' is invalid for Content Range".format(
-        start
-    )
+    assert "'{}' is invalid for Content Range".format(start) in response.text
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
@@ -309,9 +307,7 @@ def test_static_content_range_invalid_end(
     request, response = app.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
-    assert response.text == "Error: '{}' is invalid for Content Range".format(
-        end
-    )
+    assert "'{}' is invalid for Content Range".format(end) in response.text
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
@@ -330,7 +326,7 @@ def test_static_content_range_invalid_parameters(
     request, response = app.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
-    assert response.text == "Error: Invalid for Content Range parameters"
+    assert "Invalid for Content Range parameters" in response.text
 
 
 @pytest.mark.parametrize(
@@ -411,7 +407,7 @@ def test_file_not_found(spf, static_file_directory):
     request, response = app.test_client.get("/static/not_found")
 
     assert response.status == 404
-    assert response.text == "Error: File not found"
+    assert "File not found" in response.text
 
 
 @pytest.mark.parametrize("static_name", ["_static_name", "static"])
@@ -424,19 +420,3 @@ def test_static_name(spf, static_file_directory, static_name, file_name):
     request, response = app.test_client.get("/static/{}".format(file_name))
 
     assert response.status == 200
-
-
-@pytest.mark.parametrize("file_name", ["test.file"])
-def test_static_remove_route(spf, static_file_directory, file_name):
-    app = spf._app
-    plugin = TestPlugin()
-    plugin.static(
-        "/testing.file", get_file_path(static_file_directory, file_name)
-    )
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
-    assert response.status == 200
-
-    app.remove_route("/testing.file")
-    request, response = app.test_client.get("/testing.file")
-    assert response.status == 404

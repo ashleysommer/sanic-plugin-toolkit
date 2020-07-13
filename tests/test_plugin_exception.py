@@ -89,9 +89,17 @@ def test_html_traceback_output_in_debug_mode():
     assert 'response = handler(request, *args, **kwargs)' in html
     assert 'handler_4' in html
     assert 'foo = bar' in html
-    summary_start = html.index("<div class=\"summary\">")
-    summary_start += 21
-    summary_end = html.index("</div>", summary_start)
+
+    try:
+        summary_start = html.index("<div class=\"summary\">")
+        summary_start += 21
+        summary_end = html.index("</div>", summary_start)
+    except ValueError:
+        # Sanic 20.3 and later uses a cut down HTML5 spec,
+        # see here: https://stackoverflow.com/a/25749523
+        summary_start = html.index("<div class=summary>")
+        summary_start += 19
+        summary_end = html.index("</code>", summary_start)
     summary_text = html[summary_start:summary_end]
     summary_text = summary_text.replace("  ", " ").replace("\n", "").replace('\\n', "").replace('\t', "")\
         .replace('\\t', "").replace('\\\'','\'').replace("<b>", "").replace("</b>", "").replace("<p>", "")\
@@ -119,9 +127,16 @@ def test_chained_exception_handler():
     assert 'ValueError' in html
     assert 'The above exception was the direct cause' in html
 
-    summary_start = html.index("<div class=\"summary\">")
-    summary_start += 21
-    summary_end = html.index("</div>", summary_start)
+    try:
+        summary_start = html.index("<div class=\"summary\">")
+        summary_start += 21
+        summary_end = html.index("</div>", summary_start)
+    except ValueError:
+        # Sanic 20.3 and later uses a cut down HTML5 spec,
+        # see here: https://stackoverflow.com/a/25749523
+        summary_start = html.index("<div class=summary>")
+        summary_start += 19
+        summary_end = html.index("</code>", summary_start)
     summary_text = html[summary_start:summary_end]
     summary_text = summary_text.replace("  ", " ").replace("\n", "").replace('\\n', "").replace('\t', "")\
         .replace('\\t', "").replace('\\\'','\'').replace("<b>", "").replace("</b>", "").replace("<p>", "")\

@@ -1,7 +1,6 @@
 from urllib.parse import urlparse
 from sanic import Sanic
 from sanic.response import text
-from sanic.testing import HOST, PORT
 from spf import SanicPluginsFramework, SanicPlugin
 from spf.plugins import contextualize
 import pytest

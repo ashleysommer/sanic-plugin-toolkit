@@ -1,7 +1,7 @@
 from urllib.parse import urlparse
 from sanic import Sanic
 from sanic.response import text
-from sanic.testing import HOST, PORT
+from sanic import testing
 from spf import SanicPluginsFramework, SanicPlugin
 import pytest
 
@@ -31,8 +31,15 @@ def test_plugin_url_attributes(spf, path, query, expected_url):
     test_plugin.route(path)(handler)
 
     spf.register_plugin(test_plugin)
-    request, response = app.test_client.get(path + '?{}'.format(query))
-    assert request.url == expected_url.format(HOST, PORT)
+    test_client = app.test_client
+    request, response = test_client.get(path + '?{}'.format(query))
+    try:
+        # Sanic 20.3.0 and above
+        p = test_client.port
+    except AttributeError:
+        p = testing.PORT or 0
+
+    assert request.url == expected_url.format(testing.HOST, str(p))
 
     parsed = urlparse(request.url)
 
