@@ -572,8 +572,9 @@ class SanicPluginsFramework(object):
             self._handle_request, orig_handle_request), self._handle_request)
 
     async def _run_request_middleware_18_12(self, request):
-        assert self._running,\
-            "App must be running before you can run middleware!"
+        if not self._running:
+            raise RuntimeError(
+                "SPF processing a request before App server is started.")
         self.create_temporary_request_context(request)
         if self._pre_request_middleware:
             for (_pri, _ins, middleware) in self._pre_request_middleware:
@@ -599,8 +600,16 @@ class SanicPluginsFramework(object):
         return None
 
     async def _run_request_middleware_19_12(self, request, request_name=None):
-        assert self._running,\
-            "App must be running before you can run middleware!"
+        if not self._running:
+            if self._app.asgi:
+                # An ASGI app can receive requests from HTTPX even if
+                # the app is not booted yet. Not really sure what to do here.
+                print(RuntimeWarning("Unexpected ASGI request. Forcing SPF "
+                                     "into running mode without a server."))
+                self._on_server_start(request.app, request.transport.loop)
+            else:
+                raise RuntimeError(
+                    "SPF processing a request before App server is started.")
         self.create_temporary_request_context(request)
         if self._pre_request_middleware:
             for (_pri, _ins, middleware) in self._pre_request_middleware:

@@ -1,6 +1,15 @@
 Sanic Plugins Framework
 =======================
 
+0.9.3
+-----------
+- Fixed calling routes on a SPF-enabled Sanic app using asgi_client before the app is started.
+- Clarified error message generated when a SPF-enabled route is called before the Sanic server is booted.
+- Fixed test breakages for Sanic 20.3 and 20.6 releases
+- Updated testing packages in requirements-dev
+- Updated Travis and TOX to include python 3.8 tests
+
+
 0.9.2
 -----------
 - Added a convenience feature on SanicContext class to get the request-context for a given request
