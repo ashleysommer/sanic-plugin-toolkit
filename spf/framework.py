@@ -8,6 +8,7 @@ from distutils.version import LooseVersion
 import importlib
 import re
 from sanic import Sanic, Blueprint, __version__ as sanic_version
+from sanic.exceptions import ServerError
 from sanic.log import logger
 from uuid import uuid1
 
@@ -573,7 +574,7 @@ class SanicPluginsFramework(object):
 
     async def _run_request_middleware_18_12(self, request):
         if not self._running:
-            raise RuntimeError(
+            raise ServerError(
                 "SPF processing a request before App server is started.")
         self.create_temporary_request_context(request)
         if self._pre_request_middleware:
@@ -606,7 +607,8 @@ class SanicPluginsFramework(object):
                 # the app is not booted yet. Not really sure what to do here.
                 print(RuntimeWarning("Unexpected ASGI request. Forcing SPF "
                                      "into running mode without a server."))
-                self._on_server_start(request.app, request.transport.loop)
+                self._on_server_start(
+                    request.app, request.transport.loop)
             else:
                 raise RuntimeError(
                     "SPF processing a request before App server is started.")
@@ -718,7 +720,6 @@ class SanicPluginsFramework(object):
             return  # Ignore if this is already called.
         self._loop = loop
 
-        self._running = True
         # sort and freeze these
         self._pre_request_middleware = \
             tuple(sorted(self._pre_request_middleware))
@@ -730,6 +731,13 @@ class SanicPluginsFramework(object):
             tuple(sorted(self._post_response_middleware))
         self._cleanup_middleware = \
             tuple(sorted(self._cleanup_middleware))
+        self._running = True
+
+    def _on_after_server_start(self, app, loop):
+        if not self._running:
+            # Missed before_server_start event
+            # Run startup now!
+            self._on_server_start(app, loop)
 
     def _patch_app(self, app):
         # monkey patch the app!
@@ -859,10 +867,12 @@ class SanicPluginsFramework(object):
         if isinstance(app, Blueprint):
             bp = app
             self._patch_blueprint(bp)
-            bp.listener('after_server_start')(self._on_server_start)
+            bp.listener('before_server_start')(self._on_server_start)
+            bp.listener('after_server_start')(self._on_after_server_start)
         else:
             self._patch_app(app)
-            app.listener('after_server_start')(self._on_server_start)
+            app.listener('before_server_start')(self._on_server_start)
+            app.listener('after_server_start')(self._on_after_server_start)
         config = getattr(app, 'config', None)
         if config:
             load_ini = config.get(SPF_LOAD_INI_KEY, True)

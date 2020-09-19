@@ -1,6 +1,17 @@
 Sanic Plugins Framework
 =======================
 
+0.9.4
+-----------
+- If the Sanic server emits a "before_server_start" event, use this to initialize SPF, instead of the
+  "after_server_start" event.
+
+  - This solves a potential race-condition introduced in SPF v0.8.2, when this was reversed.
+- Changed the RuntimeError thrown in that cirumstance to a Sanic ``ServerError``
+
+  - This may make the error easier to catch and filter. Also may change what the end-user sees when this occurs.
+
+
 0.9.3
 -----------
 - Fixed calling routes on a SPF-enabled Sanic app using asgi_client before the app is started.
