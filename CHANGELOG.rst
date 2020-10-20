@@ -1,13 +1,22 @@
 Sanic Plugins Framework
 =======================
 
+0.9.4.post1
+-----------
+- Add ``setuptools`` as a specific requirement to this project.
+
+  - It is needed for the entrypoints-based plugin auto-discovery feature
+  - ``setuptools`` is not always included in a python distribution, so we cannot assume it will be there
+  - Pinned to ``>40.0`` for now, but will likely change when we migrate to a Poetry/PEP517-based project
+
+
 0.9.4
 -----------
 - If the Sanic server emits a "before_server_start" event, use this to initialize SPF, instead of the
   "after_server_start" event.
 
   - This solves a potential race-condition introduced in SPF v0.8.2, when this was reversed.
-- Changed the RuntimeError thrown in that cirumstance to a Sanic ``ServerError``
+- Changed the RuntimeError thrown in that circumstance to a Sanic ``ServerError``
 
   - This may make the error easier to catch and filter. Also may change what the end-user sees when this occurs.
 
