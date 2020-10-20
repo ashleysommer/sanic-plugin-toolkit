@@ -1,1 +1,2 @@
+setuptools>=40.0
 sanic>=18.12.0
