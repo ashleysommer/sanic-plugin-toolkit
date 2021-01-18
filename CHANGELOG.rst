@@ -1,6 +1,16 @@
 Sanic Plugins Framework
 =======================
 
+0.9.4.post2
+-----------
+- Pinned this series of SPF to maximum Sanic v20.12.x, this series will not work on Sanic 21.x
+
+  - A new version of SanicPluginsFramework is in development that will work on Sanic 21.x
+  - It will have a new module name to avoid the conflict with the other `spf` library on Pip.
+  - It will be a PEP 517/518 project, with pyproject.toml and Poetry orchestration.
+  - New features in Sanic 21.x will necessitate some big changes in SanicPluginsFramework (this is a good thing!)
+
+
 0.9.4.post1
 -----------
 - Add ``setuptools`` as a specific requirement to this project.
