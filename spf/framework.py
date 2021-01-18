@@ -602,11 +602,23 @@ class SanicPluginsFramework(object):
 
     async def _run_request_middleware_19_12(self, request, request_name=None):
         if not self._running:
+            # Test_mode is only present on Sanic 20.9+
+            test_mode = getattr(self._app, "test_mode", False)
             if self._app.asgi:
-                # An ASGI app can receive requests from HTTPX even if
-                # the app is not booted yet. Not really sure what to do here.
-                print(RuntimeWarning("Unexpected ASGI request. Forcing SPF "
-                                     "into running mode without a server."))
+                if test_mode:
+                    # We're deliberately in Test Mode, we don't expect
+                    # Server events to have been kicked off yet.
+                    pass
+                else:
+                    # An ASGI app can receive requests from HTTPX even if
+                    # the app is not booted yet.
+                    self.warning("Unexpected ASGI request. Forcing SPF "
+                                 "into running mode without a server.")
+                self._on_server_start(
+                    request.app, request.transport.loop)
+            elif test_mode:
+                self.warning("Unexpected test-mode request. Forcing SPF "
+                             "into running mode without a server.")
                 self._on_server_start(
                     request.app, request.transport.loop)
             else:
