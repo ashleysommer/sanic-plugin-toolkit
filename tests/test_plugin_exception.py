@@ -2,7 +2,7 @@ from sanic import Sanic
 from sanic.response import text
 from sanic.exceptions import InvalidUsage, ServerError, NotFound
 from sanic.handlers import ErrorHandler
-from spf import SanicPlugin, SanicPluginsFramework
+from sanic_plugin_toolkit import SanicPlugin, SanicPluginRealm
 
 class TestPlugin(SanicPlugin):
     pass
@@ -11,7 +11,7 @@ class TestPlugin(SanicPlugin):
 # and modified to test the SanicPlugin, rather than Sanic
 
 exception_handler_app = Sanic('test_exception_handler')
-spf = SanicPluginsFramework(exception_handler_app)
+realm = SanicPluginRealm(exception_handler_app)
 test_plugin = TestPlugin()
 
 @test_plugin.route('/1')
@@ -56,7 +56,7 @@ def handler_6(request, arg):
 def handler_exception(request, exception):
     return text("OK")
 
-spf.register_plugin(test_plugin)
+realm.register_plugin(test_plugin)
 
 def test_invalid_usage_exception_handler():
     request, response = exception_handler_app.test_client.get('/1')

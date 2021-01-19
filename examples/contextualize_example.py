@@ -1,10 +1,10 @@
 from sanic import Sanic
 from sanic.response import text
-from spf import SanicPluginsFramework
-from spf.plugins.contextualize import instance as contextualize
+from sanic_plugin_toolkit import SanicPluginRealm
+from sanic_plugin_toolkit.plugins.contextualize import instance as contextualize
 
 app = Sanic(__name__)
-spf = SanicPluginsFramework(app)
+realm = SanicPluginRealm(app)
 
 
 # You can create a context middleware _before_ registering the plugin
@@ -31,7 +31,7 @@ def index1(request, context):
     return text("hello world")
 
 
-contextualize = spf.register_plugin(contextualize)
+contextualize = realm.register_plugin(contextualize)
 
 
 # Or you can create a context route _after_ registering the plugin

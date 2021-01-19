@@ -1,15 +1,15 @@
 from sanic import Sanic
 from sanic.response import text
-from spf import SanicPluginsFramework
-from spf.plugins.contextualize import instance as contextualize
+from sanic_plugin_toolkit import SanicPluginRealm
+from sanic_plugin_toolkit.plugins.contextualize import instance as contextualize
 
 app = Sanic(__name__)
-app.config['SPF_LOAD_INI'] = True
-app.config['SPF_INI_FILE'] = 'example_spf.ini'
-spf = SanicPluginsFramework(app)
+app.config['STK_LOAD_INI'] = True
+app.config['STK_INI_FILE'] = 'example_stk.ini'
+realm = SanicPluginRealm(app)
 
 # We can get the assoc object from SPF, it is already registered
-contextualize = spf.get_plugin_assoc('Contextualize')
+contextualize = realm.get_plugin_assoc('Contextualize')
 
 
 @contextualize.middleware

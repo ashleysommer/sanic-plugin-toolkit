@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-This is the specialised dictionary that is used by Sanic Plugins Framework
+This is the specialised dictionary that is used by Sanic Plugin Toolkit
 to manage Context objects. It can be hierarchical, and it searches its
 parents if it cannot find an item in its own dictionary. It can create its
 own children.
@@ -9,11 +9,12 @@ own children.
 
 class HierDict(object):
     """
-This is the specialised dictionary that is used by Sanic Plugins Framework
+This is the specialised dictionary that is used by the Sanic Plugin Toolkit
 to manage Context objects. It can be hierarchical, and it searches its
 parents if it cannot find an item in its own dictionary. It can create its
 own children.
     """
+
     __slots__ = ('_parent_hd', '_dict', '__weakref__')
 
     @classmethod
@@ -187,8 +188,7 @@ own children.
         self = super(HierDict, cls).__new__(cls)
         self._dict = dict(*args, **kwargs)
         if parent is not None:
-            assert isinstance(parent, HierDict),\
-                "Parent context must be a valid initialised HierDict"
+            assert isinstance(parent, HierDict), "Parent context must be a valid initialised HierDict"
             self._parent_hd = parent
         else:
             self._parent_hd = None
@@ -213,14 +213,13 @@ own children.
 
     def __reduce__(self):
         state_dict = self.__getstate__()
-        spf = state_dict.pop('_spf')
+        _ = state_dict.pop('_stk_realm', None)
         parent_context = state_dict.pop('_parent_hd')
-        return (HierDict.__new__, (self.__class__, spf, parent_context),
-                state_dict)
+        return (HierDict.__new__, (self.__class__, parent_context), state_dict)
 
 
 class SanicContext(HierDict):
-    __slots__ = ('_spf',)
+    __slots__ = ('_stk_realm',)
 
     def __repr__(self):
         _dict_repr = repr(self._inner())
@@ -231,20 +230,19 @@ class SanicContext(HierDict):
         return "SanicContext({:s})".format(_dict_str)
 
     def create_child_context(self, *args, **kwargs):
-        return SanicContext(self._spf, self, *args, **kwargs)
+        return SanicContext(self._stk_realm, self, *args, **kwargs)
 
-    def __new__(cls, spf, parent, *args, **kwargs):
+    def __new__(cls, stk_realm, parent, *args, **kwargs):
         if parent is not None:
-            assert isinstance(parent, SanicContext),\
-                "Parent context must be a valid initialised SanicContext"
+            assert isinstance(parent, SanicContext), "Parent context must be a valid initialised SanicContext"
         self = super(SanicContext, cls).__new__(cls, parent, *args, **kwargs)
-        self._spf = spf
+        self._stk_realm = stk_realm
         return self
 
     def __init__(self, *args, **kwargs):
         args = list(args)
-        # remove spf
-        _spf = args.pop(0)  # noqa: F841
+        # remove realm
+        _stk_realm = args.pop(0)  # noqa: F841
         super(SanicContext, self).__init__(*args)
 
     def __getstate__(self):
@@ -255,10 +253,9 @@ class SanicContext(HierDict):
 
     def __reduce__(self):
         state_dict = self.__getstate__()
-        spf = state_dict.pop('_spf')
+        realm = state_dict.pop('_stk_realm')
         parent_context = state_dict.pop('_parent_hd')
-        return (SanicContext.__new__, (self.__class__, spf, parent_context),
-                state_dict)
+        return (SanicContext.__new__, (self.__class__, realm, parent_context), state_dict)
 
     def for_request(self, req):
         # shortcut for context.request[id(req)]

@@ -2,7 +2,7 @@ from urllib.parse import urlparse
 from sanic import Sanic
 from sanic.response import text
 from sanic import testing
-from spf import SanicPluginsFramework, SanicPlugin
+from sanic_plugin_toolkit import SanicPluginRealm, SanicPlugin
 import pytest
 
 
@@ -19,16 +19,16 @@ class TestPlugin(SanicPlugin):
         ('/bar/baz', '', 'http://{}:{}/bar/baz'),
         ('/moo/boo', 'arg1=val1', 'http://{}:{}/moo/boo?arg1=val1')
     ])
-def test_plugin_ws_url_attributes(spf, path, query, expected_url):
+def test_plugin_ws_url_attributes(realm, path, query, expected_url):
     """Note, this doesn't _really_ test websocket functionality very well."""
-    app = spf._app
+    app = realm._app
     test_plugin = TestPlugin()
 
     async def handler(request):
         return text('OK')
 
     test_plugin.websocket(path)(handler)
-    spf.register_plugin(test_plugin)
+    realm.register_plugin(test_plugin)
     test_client = app.test_client
     request, response = test_client.get(path + '?{}'.format(query))
     try:

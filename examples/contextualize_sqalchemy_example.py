@@ -1,9 +1,9 @@
 from sanic import Sanic
 from sanic.response import text
-from spf import SanicPluginsFramework
-from spf.plugins.contextualize import instance as contextualize
+from sanic_plugin_toolkit import SanicPluginRealm
+from sanic_plugin_toolkit.plugins.contextualize import instance as contextualize
 app = Sanic(__name__)
-spf = SanicPluginsFramework(app)
+realm = SanicPluginRealm(app)
 
 
 @contextualize.listener('after_server_start')
@@ -41,7 +41,7 @@ def index(request, context):
     return text("hello {}!".format(current_username))
 
 
-_ = spf.register_plugin(contextualize)
+_ = realm.register_plugin(contextualize)
 
 if __name__ == "__main__":
     app.run("127.0.0.1", port=8098, debug=True, auto_reload=False)

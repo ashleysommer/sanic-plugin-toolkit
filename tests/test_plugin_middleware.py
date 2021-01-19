@@ -2,7 +2,7 @@ from sanic import Sanic
 from sanic.request import Request
 from sanic.response import text, HTTPResponse
 from sanic.exceptions import NotFound
-from spf import SanicPlugin, SanicPluginsFramework
+from sanic_plugin_toolkit import SanicPlugin, SanicPluginRealm
 
 class TestPlugin(SanicPlugin):
     pass
@@ -14,8 +14,8 @@ class TestPlugin(SanicPlugin):
 #  GET
 # ------------------------------------------------------------ #
 
-def test_middleware_request(spf):
-    app = spf._app
+def test_middleware_request(realm):
+    app = realm._app
     plugin = TestPlugin()
 
     results = []
@@ -28,15 +28,15 @@ def test_middleware_request(spf):
     async def handler(request):
         return text('OK')
 
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     request, response = app.test_client.get('/')
 
     assert response.text == 'OK'
     assert type(results[0]) is Request
 
 
-def test_middleware_response(spf):
-    app = spf._app
+def test_middleware_response(realm):
+    app = realm._app
     plugin = TestPlugin()
     results = []
 
@@ -53,7 +53,7 @@ def test_middleware_response(spf):
     async def handler(request):
         return text('OK')
 
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     request, response = app.test_client.get('/')
 
     assert response.text == 'OK'
@@ -62,8 +62,8 @@ def test_middleware_response(spf):
     assert isinstance(results[2], HTTPResponse)
 
 
-def test_middleware_response_exception(spf):
-    app = spf._app
+def test_middleware_response_exception(realm):
+    app = realm._app
     plugin = TestPlugin()
     result = {'status_code': None}
 
@@ -80,13 +80,13 @@ def test_middleware_response_exception(spf):
     async def handler(request):
         return text('FAIL')
 
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     request, response = app.test_client.get('/page_not_found')
     assert response.text == 'OK'
     assert result['status_code'] == 404
 
-def test_middleware_override_request(spf):
-    app = spf._app
+def test_middleware_override_request(realm):
+    app = realm._app
     plugin = TestPlugin()
 
     @plugin.middleware
@@ -97,15 +97,15 @@ def test_middleware_override_request(spf):
     async def handler(request):
         return text('FAIL')
 
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     response = app.test_client.get('/', gather_request=False)
 
     assert response.status == 200
     assert response.text == 'OK'
 
 
-def test_middleware_override_response(spf):
-    app = spf._app
+def test_middleware_override_response(realm):
+    app = realm._app
     plugin = TestPlugin()
     @plugin.middleware('response')
     async def process_response(request, response):
@@ -115,7 +115,7 @@ def test_middleware_override_response(spf):
     async def handler(request):
         return text('FAIL')
 
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     request, response = app.test_client.get('/')
 
     assert response.status == 200
@@ -123,8 +123,8 @@ def test_middleware_override_response(spf):
 
 
 
-def test_middleware_order(spf):
-    app = spf._app
+def test_middleware_order(realm):
+    app = realm._app
     plugin = TestPlugin()
     order = []
 
@@ -156,7 +156,7 @@ def test_middleware_order(spf):
     async def handler(request):
         return text('OK')
 
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     request, response = app.test_client.get('/')
 
     assert response.status == 200

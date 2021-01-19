@@ -1,6 +1,6 @@
 import pytest
 from sanic import Sanic
-from spf import SanicPluginsFramework
+from sanic_plugin_toolkit import SanicPluginRealm
 
 def app_with_name(name):
     return Sanic(name)
@@ -10,6 +10,6 @@ def app(request):
     return app_with_name(request.node.name)
 
 @pytest.fixture
-def spf(request):
+def realm(request):
     a = app_with_name(request.node.name)
-    return SanicPluginsFramework(a)
+    return SanicPluginRealm(a)

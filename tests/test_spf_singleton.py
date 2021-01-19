@@ -1,5 +1,5 @@
 from sanic import Sanic
-from spf import SanicPlugin, SanicPluginsFramework
+from sanic_plugin_toolkit import SanicPlugin, SanicPluginRealm
 
 
 class TestPlugin(SanicPlugin):
@@ -8,25 +8,25 @@ class TestPlugin(SanicPlugin):
 
 instance = TestPlugin()
 
-def test_spf_singleton_1(spf):
+def test_spf_singleton_1(realm):
     """
-    Registering the framework twice on the same app should return
-    an indentical instance of the spf
+    Registering the toolkit twice on the same app should return
+    an indentical instance of the realm
     :return:
     """
-    app1 = spf._app
-    spf.register_plugin(instance)
-    spf2 = SanicPluginsFramework(app1)
-    assert spf == spf2
+    app1 = realm._app
+    realm.register_plugin(instance)
+    realm2 = SanicPluginRealm(app1)
+    assert realm == realm2
 
-def test_spf_singleton_2(spf):
+def test_spf_singleton_2(realm):
     """
-    Registering the framework twice, but with different apps should return
+    Registering the toolkit twice, but with different apps should return
     two different spfs
     :return:
     """
-    app1 = spf._app
-    app2 = Sanic('test_spf_singleton_2_1')
-    spf.register_plugin(instance)
-    spf2 = SanicPluginsFramework(app2)
-    assert spf != spf2
+    app1 = realm._app
+    app2 = Sanic('test_realm_singleton_2_1')
+    realm.register_plugin(instance)
+    realm2 = SanicPluginRealm(app2)
+    assert realm != realm2

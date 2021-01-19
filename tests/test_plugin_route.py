@@ -2,18 +2,15 @@ from urllib.parse import urlparse
 from sanic import Sanic
 from sanic.response import text
 from sanic import testing
-from spf import SanicPluginsFramework, SanicPlugin
+from sanic_plugin_toolkit import SanicPluginRealm, SanicPlugin
 import pytest
 
-from spf.context import HierDict, SanicContext
+from sanic_plugin_toolkit.context import HierDict, SanicContext
 
 
 class TestPlugin(SanicPlugin):
     pass
 
-
-# The following tests are taken directly from Sanic source @ v0.6.0
-# and modified to test the SanicPluginsFramework, rather than Sanic
 
 @pytest.mark.parametrize(
     'path,query,expected_url', [
@@ -21,8 +18,8 @@ class TestPlugin(SanicPlugin):
         ('/bar/baz', '', 'http://{}:{}/bar/baz'),
         ('/moo/boo', 'arg1=val1', 'http://{}:{}/moo/boo?arg1=val1')
     ])
-def test_plugin_url_attributes(spf, path, query, expected_url):
-    app = spf._app
+def test_plugin_url_attributes(realm, path, query, expected_url):
+    app = realm._app
     test_plugin = TestPlugin()
 
     async def handler(request):
@@ -30,7 +27,7 @@ def test_plugin_url_attributes(spf, path, query, expected_url):
 
     test_plugin.route(path)(handler)
 
-    spf.register_plugin(test_plugin)
+    realm.register_plugin(test_plugin)
     test_client = app.test_client
     request, response = test_client.get(path + '?{}'.format(query))
     try:
@@ -48,8 +45,8 @@ def test_plugin_url_attributes(spf, path, query, expected_url):
     assert parsed.query == request.query_string
     assert parsed.netloc == request.host
 
-def test_plugin_route_context(spf):
-    app = spf._app
+def test_plugin_route_context(realm):
+    app = realm._app
     test_plugin = TestPlugin()
 
     async def handler(request, context):
@@ -81,6 +78,6 @@ def test_plugin_route_context(spf):
 
     test_plugin.route('/', with_context=True)(handler)
 
-    spf.register_plugin(test_plugin)
+    realm.register_plugin(test_plugin)
     request, response = app.test_client.get('/')
     assert response.text == "OK"
