@@ -493,12 +493,18 @@ class SanicPluginsFramework(object):
 
     def create_temporary_request_context(self, request):
         request_hash = id(request)
-        new_ctx = SanicContext(self, None, {'id': 'shared request contexts'})
         shared_context = self.shared_context
-        shared_request = shared_context.get('request', False)
-        if not shared_request:
-            shared_context['request'] = shared_request = new_ctx
-        shared_request[request_hash] =\
+        shared_requests_dict = shared_context.get('request', False)
+        if not shared_requests_dict:
+            new_ctx = SanicContext(self, None,
+                                   {'id': 'shared request contexts'})
+            shared_context['request'] = shared_requests_dict = new_ctx
+        shared_request_ctx = shared_requests_dict.get(request_hash, None)
+        if shared_request_ctx is not None:
+            # somehow we already have one for this request id.
+            return shared_request_ctx
+
+        shared_requests_dict[request_hash] = shared_request_ctx =\
             SanicContext(self, None,
                          {'request': request,
                           'id': "shared request context for request {}"
@@ -520,6 +526,7 @@ class SanicPluginsFramework(object):
                 SanicContext(self, None, {'request': request, 'id':
                              "private request context for {} on request {}"
                                           .format(name, id(request))})
+        return shared_request_ctx
 
     def delete_temporary_request_context(self, request):
         request_hash = id(request)
@@ -527,8 +534,6 @@ class SanicPluginsFramework(object):
         try:
             _shared_request = shared_context['request']
             del _shared_request[request_hash]
-            if len(_shared_request) < 1:
-                del shared_context['request']
         except KeyError:
             pass
         for name, _p in self._plugins_context.items():
@@ -542,8 +547,6 @@ class SanicPluginsFramework(object):
             try:
                 _p_request = _p_context['request']
                 del _p_request[request_hash]
-                if len(_p_request) < 1:
-                    del _p_context['request']
             except KeyError:
                 pass
 
@@ -712,15 +715,17 @@ class SanicPluginsFramework(object):
         return response
 
     async def _run_cleanup_middleware(self, request):
+        to_return = None
         if self._cleanup_middleware:
             for (_pri, _ins, middleware) in self._cleanup_middleware:
                 response = middleware(request)
                 if isawaitable(response):
                     response = await response
                 if response:
-                    return response
+                    to_return = response
+                    break
         self.delete_temporary_request_context(request)
-        return None
+        return to_return
 
     def _on_server_start(self, app, loop):
         if not isinstance(self._app, Blueprint):
@@ -791,6 +796,7 @@ class SanicPluginsFramework(object):
 
         async def run_bp_pre_response_mw(request, response):
             nonlocal _spf
+            altered = False
             if _spf._pre_response_middleware:
                 for (_pri, _ins, middleware) in _spf._pre_response_middleware:
                     _response = middleware(request, response)
@@ -798,10 +804,14 @@ class SanicPluginsFramework(object):
                         _response = await _response
                     if _response:
                         response = _response
+                        altered = True
                         break
+            if altered:
+                return response
 
         async def run_bp_post_response_mw(request, response):
             nonlocal _spf
+            altered = False
             if _spf._post_response_middleware:
                 for (_pri, _ins, middleware) in _spf._post_response_middleware:
                     _response = middleware(request, response)
@@ -809,8 +819,18 @@ class SanicPluginsFramework(object):
                         _response = await _response
                     if _response:
                         response = _response
+                        altered = True
+                        break
+            if self._cleanup_middleware:
+                for (_pri, _ins, middleware) in self._cleanup_middleware:
+                    response2 = middleware(request)
+                    if isawaitable(response2):
+                        response2 = await response2
+                    if response2:
                         break
             _spf.delete_temporary_request_context(request)
+            if altered:
+                return response
 
         def bp_register(bp_self, orig_register, app, options):
             from sanic.blueprints import FutureMiddleware as BPFutureMW

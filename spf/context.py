@@ -213,9 +213,9 @@ own children.
 
     def __reduce__(self):
         state_dict = self.__getstate__()
-        spf = state_dict.pop('_spf')
+        _ = state_dict.pop('_spf', None)
         parent_context = state_dict.pop('_parent_hd')
-        return (HierDict.__new__, (self.__class__, spf, parent_context),
+        return (HierDict.__new__, (self.__class__, parent_context),
                 state_dict)
 
 
