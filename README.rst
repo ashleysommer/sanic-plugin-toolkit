@@ -185,7 +185,7 @@ Contributing
 ------------
 
 Questions, comments or improvements? Please create an issue on
-`Github <https://github.com/ashleysommer/sanicpluginsframework>`__
+`Github <https://github.com/ashleysommer/sanic-plugin-toolkit>`__
 
 Credits
 -------
@@ -193,14 +193,14 @@ Credits
 Ashley Sommer `ashleysommer@gmail.com <ashleysommer@gmail.com>`__
 
 
-.. |Build Status| image:: https://api.travis-ci.org/ashleysommer/sanicpluginsframework.svg?branch=master
-   :target: https://travis-ci.org/ashleysommer/sanicpluginsframework
+.. |Build Status| image:: https://api.travis-ci.org/ashleysommer/sanic-plugin-toolkit.svg?branch=master
+   :target: https://travis-ci.org/ashleysommer/sanic-plugin-toolkit
 
-.. |Latest Version| image:: https://img.shields.io/pypi/v/Sanic-Plugins-Framework.svg
-   :target: https://pypi.python.org/pypi/Sanic-Plugins-Framework/
+.. |Latest Version| image:: https://img.shields.io/pypi/v/sanic-plugin-toolkit.svg
+   :target: https://pypi.python.org/pypi/sanic-plugin-toolkit/
 
-.. |Supported Python versions| image:: https://img.shields.io/pypi/pyversions/Sanic-Plugins-Framework.svg
-   :target: https://img.shields.io/pypi/pyversions/Sanic-Plugins-Framework.svg
+.. |Supported Python versions| image:: https://img.shields.io/pypi/pyversions/sanic-plugin-toolkit.svg
+   :target: https://img.shields.io/pypi/pyversions/sanic-plugin-toolkit.svg
 
 .. |License| image:: http://img.shields.io/:license-mit-blue.svg
-   :target: https://pypi.python.org/pypi/Sanic-Plugins-Framework/
+   :target: https://pypi.python.org/pypi/sanic-plugin-toolkit/
