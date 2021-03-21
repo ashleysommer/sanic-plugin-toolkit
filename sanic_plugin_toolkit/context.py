@@ -9,10 +9,10 @@ own children.
 
 class HierDict(object):
     """
-This is the specialised dictionary that is used by the Sanic Plugin Toolkit
-to manage Context objects. It can be hierarchical, and it searches its
-parents if it cannot find an item in its own dictionary. It can create its
-own children.
+    This is the specialised dictionary that is used by the Sanic Plugin Toolkit
+    to manage Context objects. It can be hierarchical, and it searches its
+    parents if it cannot find an item in its own dictionary. It can create its
+    own children.
     """
 
     __slots__ = ('_parent_hd', '_dict', '__weakref__')

@@ -3,10 +3,11 @@
 Allows SPTK to parse a config file and automatically load defined plugins
 """
 
-import os
 import configparser
-import pkg_resources
 import importlib
+import os
+
+import pkg_resources
 
 
 def _find_config_file(filename):

@@ -1,16 +1,26 @@
 # -*- coding: utf-8 -*-
-import sys
-from asyncio import CancelledError
-from functools import partial, update_wrapper
-from inspect import isawaitable, ismodule
-from collections import deque
-from distutils.version import LooseVersion
 import importlib
 import re
-from sanic import Sanic, Blueprint, __version__ as sanic_version
+import sys
+
+from asyncio import CancelledError
+from collections import deque
+from distutils.version import LooseVersion
+from functools import partial, update_wrapper
+from inspect import isawaitable, ismodule
+from typing import Any, Dict
+from uuid import uuid1
+
+from sanic import Blueprint, Sanic
+from sanic import __version__ as sanic_version
 from sanic.exceptions import ServerError
 from sanic.log import logger
-from uuid import uuid1
+from sanic.models.futures import FutureException as SanicFutureException
+from sanic.models.futures import FutureListener as SanicFutureListener
+from sanic.models.futures import FutureMiddleware as SanicFutureMiddleware
+from sanic.models.futures import FutureRoute as SanicFutureRoute
+from sanic.models.futures import FutureStatic as SanicFutureStatic
+
 
 try:
     from sanic.response import BaseHTTPResponse
@@ -19,10 +29,11 @@ except ImportError:
 
 from sanic_plugin_toolkit.config import load_config_file
 from sanic_plugin_toolkit.context import SanicContext
-from sanic_plugin_toolkit.plugin import SanicPlugin, PluginRegistration
+from sanic_plugin_toolkit.plugin import PluginRegistration, SanicPlugin
+
 
 module = sys.modules[__name__]
-module.consts = CONSTS = dict()
+CONSTS: Dict[str, Any] = dict()
 CONSTS["APP_CONFIG_INSTANCE_KEY"] = APP_CONFIG_INSTANCE_KEY = "__SPTK_INSTANCE"
 CONSTS["SPTK_LOAD_INI_KEY"] = SPTK_LOAD_INI_KEY = "SPTK_LOAD_INI"
 CONSTS["SPTK_INI_FILE_KEY"] = SPTK_INI_FILE_KEY = "SPTK_INI_FILE"
@@ -38,6 +49,9 @@ WARNING = 30
 INFO = 20
 DEBUG = 10
 
+to_snake_case_first_cap_re = re.compile('(.)([A-Z][a-z]+)')
+to_snake_case_all_cap_re = re.compile('([a-z0-9])([A-Z])')
+
 
 def to_snake_case(name):
     """
@@ -48,12 +62,8 @@ def to_snake_case(name):
     :return: the name of the variable, converted to snake_case
     :rtype: str
     """
-    s1 = to_snake_case.first_cap_re.sub(r'\1_\2', name)
-    return to_snake_case.all_cap_re.sub(r'\1_\2', s1).lower()
-
-
-to_snake_case.first_cap_re = re.compile('(.)([A-Z][a-z]+)')
-to_snake_case.all_cap_re = re.compile('([a-z0-9])([A-Z])')
+    s1 = to_snake_case_first_cap_re.sub(r'\1_\2', name)
+    return to_snake_case_all_cap_re.sub(r'\1_\2', s1).lower()
 
 
 class SanicPluginRealm(object):
@@ -100,7 +110,9 @@ class SanicPluginRealm(object):
         if app is None:
             return None
         if isinstance(app, Blueprint):
+            bp = app
             view_name = "{}.{}".format(app.name, view_name)
+            return [a.url_for(view_name, *args, **kwargs) for a in bp.apps]
         return app.url_for(view_name, *args, **kwargs)
 
     def _get_realm_plugin(self, plugin):
@@ -217,8 +229,24 @@ class SanicPluginRealm(object):
         return associated_tuple(plugin, reg)
 
     @staticmethod
+    def _register_exception_helper(e, _realm, plugin, context):
+        return (
+            _realm._plugin_register_bp_exception(e.handler, plugin, context, *e.exceptions, **e.kwargs)
+            if isinstance(_realm._app, Blueprint)
+            else _realm._plugin_register_app_exception(e.handler, plugin, context, *e.exceptions, **e.kwargs)
+        )
+
+    @staticmethod
+    def _register_listener_helper(event, listener, _realm, plugin, context, **kwargs):
+        return (
+            _realm._plugin_register_bp_listener(event, listener, plugin, context, **kwargs)
+            if isinstance(_realm._app, Blueprint)
+            else _realm._plugin_register_app_listener(event, listener, plugin, context, **kwargs)
+        )
+
+    @staticmethod
     def _register_middleware_helper(m, _realm, plugin, context):
-        _realm._plugin_register_middleware(m.middleware, plugin, context, *m.args, **m.kwargs)
+        return _realm._plugin_register_middleware(m.middleware, plugin, context, *m.args, **m.kwargs)
 
     @staticmethod
     def _register_route_helper(r, _realm, plugin, context, _p_name, _url_prefix):
@@ -228,49 +256,44 @@ class SanicPluginRealm(object):
         # attach the plugin name to the handler so that it can be
         # prefixed properly in the router
         _app = _realm._app
+        handler_name = str(r.handler.__name__)
+        plugin_prefix = _p_name + '.'
+        kwargs = r.kwargs
         if isinstance(_app, Blueprint):
             # blueprint always handles adding __blueprintname__
             # So we identify ourselves here a different way.
-            handler_name = r.handler.__name__
-            r.handler.__name__ = "{}.{}".format(_p_name, handler_name)
-            _realm._plugin_register_bp_route(r.handler, plugin, context, uri, *r.args, **r.kwargs)
+            # r.handler.__name__ = "{}.{}".format(_p_name, handler_name)
+            if "name" not in kwargs or kwargs["name"] is None:
+                kwargs["name"] = plugin_prefix + handler_name
+            elif not kwargs["name"].startswith(plugin_prefix):
+                kwargs["name"] = plugin_prefix + kwargs["name"]
+            _realm._plugin_register_bp_route(r.handler, plugin, context, uri, *r.args, **kwargs)
         else:
-            # app is not a blueprint, but we use the __blueprintname__
-            # property to store the plugin name
-            r.handler.__blueprintname__ = _p_name
-            _realm._plugin_register_app_route(r.handler, plugin, context, uri, *r.args, **r.kwargs)
-
-    @staticmethod
-    def _register_websocket_route_helper(w, _realm, plugin, context, _p_name, _url_prefix):
-        # Prepend the plugin URI prefix if available
-        uri = _url_prefix + w.uri if _url_prefix else w.uri
-        uri = uri[1:] if uri.startswith('//') else uri
-        # attach the plugin name to the handler so that it can be
-        # prefixed properly in the router
-        _app = _realm._app
-        if isinstance(_app, Blueprint):
-            # blueprint always handles adding __blueprintname__
-            # So we identify ourselves here a different way.
-            handler_name = w.handler.__name__
-            w.handler.__name__ = "{}.{}".format(_p_name, handler_name)
-            _realm._plugin_register_bp_websocket_route(w.handler, plugin, context, uri, *w.args, **w.kwargs)
-        else:
-            # app is not a blueprint, but we use the __blueprintname__
-            # property to store the plugin name
-            w.handler.__blueprintname__ = _p_name
-            _realm._plugin_register_app_websocket_route(w.handler, plugin, context, uri, *w.args, **w.kwargs)
+            if "name" not in kwargs or kwargs["name"] is None:
+                kwargs["name"] = plugin_prefix + handler_name
+            elif not kwargs["name"].startswith(plugin_prefix):
+                kwargs["name"] = plugin_prefix + kwargs["name"]
+            _realm._plugin_register_app_route(r.handler, plugin, context, uri, *r.args, **kwargs)
 
     @staticmethod
     def _register_static_helper(s, _realm, plugin, context, _p_name, _url_prefix):
         # attach the plugin name to the static route so that it can be
         # prefixed properly in the router
-        name = s.kwargs.pop('name', 'static')
-        if not name.startswith(_p_name + '.'):
-            name = '{}.{}'.format(_p_name, name)
+        kwargs = s.kwargs
+        name = kwargs.pop('name', 'static')
+        plugin_prefix = _p_name + '.'
+        _app = _realm._app
+        if not name.startswith(plugin_prefix):
+            name = plugin_prefix + name
         # Prepend the plugin URI prefix if available
         uri = _url_prefix + s.uri if _url_prefix else s.uri
         uri = uri[1:] if uri.startswith('//') else uri
-        _realm._plugin_register_static(uri, s.file_or_dir, plugin, context, *s.args, name=name, **s.kwargs)
+        kwargs["name"] = name
+        return (
+            _realm._plugin_register_bp_static(uri, s.file_or_dir, plugin, context, *s.args, **kwargs)
+            if isinstance(_app, Blueprint)
+            else _realm._plugin_register_app_static(uri, s.file_or_dir, plugin, context, *s.args, **kwargs)
+        )
 
     @staticmethod
     def _register_helper(plugin, context, *args, _realm=None, _plugin_name=None, _url_prefix=None, **kwargs):
@@ -291,10 +314,8 @@ class SanicPluginRealm(object):
         [_realm._register_route_helper(r, _realm, plugin, context, _plugin_name, _url_prefix) for r in plugin._routes]
 
         # Websocket routes
-        [
-            _realm._register_websocket_route_helper(w, _realm, plugin, context, _plugin_name, _url_prefix)
-            for w in plugin._ws
-        ]
+        # These are deprecated and should be handled in the _routes_ list above.
+        [_realm._register_route_helper(w, _realm, plugin, context, _plugin_name, _url_prefix) for w in plugin._ws]
 
         # Static routes
         [_realm._register_static_helper(s, _realm, plugin, context, _plugin_name, _url_prefix) for s in plugin._static]
@@ -303,15 +324,16 @@ class SanicPluginRealm(object):
         [_realm._register_middleware_helper(m, _realm, plugin, context) for m in plugin._middlewares]
 
         # Exceptions
-        for e in plugin._exceptions:
-            _realm._plugin_register_exception(e.handler, plugin, context, *e.exceptions, **e.kwargs)
+        [_realm._register_exception_helper(e, _realm, plugin, context) for e in plugin._exceptions]
 
         # Listeners
         for event, listeners in plugin._listeners.items():
             for listener in listeners:
                 if isinstance(listener, tuple):
-                    listener, kwargs = listener
-                _realm._plugin_register_listener(event, listener, plugin, context, **kwargs)
+                    listener, lkw = listener
+                else:
+                    lkw = {}
+                _realm._register_listener_helper(event, listener, _realm, plugin, context, **lkw)
 
         # # this should only ever run once!
         plugin.registrations.add(reg)
@@ -319,59 +341,57 @@ class SanicPluginRealm(object):
 
         return reg
 
-    def _plugin_register_app_route(self, r_handler, plugin, context, uri, *args, with_context=False, **kwargs):
+    def _plugin_register_app_route(
+        self, r_handler, plugin, context, uri, *args, name=None, with_context=False, **kwargs
+    ):
         if with_context:
-            bp = r_handler.__blueprintname__
             r_handler = update_wrapper(partial(r_handler, context=context), r_handler)
-            r_handler.__blueprintname__ = bp
-        if SANIC_19_12_0 <= SANIC_VERSION:
-            names, r_handler = self._app.route(uri, *args, **kwargs)(r_handler)
-        else:
-            r_handler = self._app.route(uri, *args, **kwargs)(r_handler)
-        return r_handler
+        fr = SanicFutureRoute(r_handler, uri, name=name, **kwargs)
+        routes = self._app._apply_route(fr)
+        return routes
 
-    def _plugin_register_bp_route(self, r_handler, plugin, context, uri, *args, with_context=False, **kwargs):
+    def _plugin_register_bp_route(
+        self, r_handler, plugin, context, uri, *args, name=None, with_context=False, **kwargs
+    ):
         bp = self._app
         if with_context:
             r_handler = update_wrapper(partial(r_handler, context=context), r_handler)
             # __blueprintname__ gets added in the register() routine
         # When app is a blueprint, it doesn't register right away, it happens
         # in the blueprint.register() routine.
-        r_handler = bp.route(uri, *args, **kwargs)(r_handler)
+        r_handler = bp.route(uri, *args, name=name, **kwargs)(r_handler)
         return r_handler
 
-    def _plugin_register_app_websocket_route(
-        self, w_handler, plugin, context, uri, *args, with_context=False, **kwargs
-    ):
-        if with_context:
-            bp = w_handler.__blueprintname__
-            w_handler = update_wrapper(partial(w_handler, context=context), w_handler)
-            w_handler.__blueprintname__ = bp
-        if SANIC_19_12_0 <= SANIC_VERSION:
-            names, w_handler = self._app.websocket(uri, *args, **kwargs)(w_handler)
-        else:
-            w_handler = self._app.websocket(uri, *args, **kwargs)(w_handler)
-        return w_handler
+    def _plugin_register_app_static(self, uri, file_or_dir, plugin, context, *args, **kwargs):
+        fs = SanicFutureStatic(uri, file_or_dir, **kwargs)
+        return self._app._apply_static(fs)
 
-    def _plugin_register_bp_websocket_route(
-        self, w_handler, plugin, context, uri, *args, with_context=False, **kwargs
-    ):
+    def _plugin_register_bp_static(self, uri, file_or_dir, plugin, context, *args, **kwargs):
         bp = self._app
+        return bp.static(uri, file_or_dir, *args, **kwargs)
+
+    def _plugin_register_app_exception(self, handler, plugin, context, *exceptions, with_context=False, **kwargs):
         if with_context:
-            w_handler = update_wrapper(partial(w_handler, context=context), w_handler)
-            # __blueprintname__ gets added in the register() routine
-        # When app is a blueprint, it doesn't register right away, it happens
-        # in the blueprint.register() routine.
-        w_handler = bp.websocket(uri, *args, **kwargs)(w_handler)
-        return w_handler
+            handler = update_wrapper(partial(handler, context=context), handler)
+        fe = SanicFutureException(handler, list(exceptions))
+        return self._app._apply_exception_handler(fe)
 
-    def _plugin_register_static(self, uri, file_or_dir, plugin, context, *args, **kwargs):
-        return self._app.static(uri, file_or_dir, *args, **kwargs)
-
-    def _plugin_register_exception(self, handler, plugin, context, *exceptions, with_context=False, **kwargs):
+    def _plugin_register_bp_exception(self, handler, plugin, context, *exceptions, with_context=False, **kwargs):
         if with_context:
             handler = update_wrapper(partial(handler, context=context), handler)
         return self._app.exception(*exceptions)(handler)
+
+    def _plugin_register_app_listener(self, event, listener, plugin, context, *args, with_context=False, **kwargs):
+        if with_context:
+            listener = update_wrapper(partial(listener, context=context), listener)
+        fl = SanicFutureListener(listener, event)
+        return self._app._apply_listener(fl)
+
+    def _plugin_register_bp_listener(self, event, listener, plugin, context, *args, with_context=False, **kwargs):
+        if with_context:
+            listener = update_wrapper(partial(listener, context=context), listener)
+        bp = self._app
+        return bp.listener(event)(listener)
 
     def _plugin_register_middleware(
         self,
@@ -422,11 +442,6 @@ class SanicPluginRealm(object):
                 assert relative == "pre", "A response middleware must have relative = pre or post"
                 self._pre_response_middleware.append(priority_middleware)
         return middleware
-
-    def _plugin_register_listener(self, event, listener, plugin, context, *args, with_context=False, **kwargs):
-        if with_context:
-            listener = update_wrapper(partial(listener, context=context), listener)
-        return self._app.listener(event)(listener)
 
     @property
     def _plugins_context(self):
@@ -484,7 +499,7 @@ class SanicPluginRealm(object):
                 _p_context['request'] = p_request = SanicContext(self, None, {'id': 'private request contexts'})
             else:
                 p_request = _p_context.request
-            p_request[request_hash] = plugin_request_context = SanicContext(
+            p_request[request_hash] = SanicContext(
                 self,
                 None,
                 {'request': request, 'id': "private request context for {} on request {}".format(name, id(request))},
@@ -888,17 +903,16 @@ class SanicPluginRealm(object):
                 return response
 
         def bp_register(bp_self, orig_register, app, options):
-            from sanic.blueprints import FutureMiddleware as BPFutureMW
-
-            pre_request = BPFutureMW(run_bp_pre_request_mw, args=(), kwargs={'attach_to': 'request'})
-            post_request = BPFutureMW(run_bp_post_request_mw, args=(), kwargs={'attach_to': 'request'})
-            pre_response = BPFutureMW(run_bp_pre_response_mw, args=(), kwargs={'attach_to': 'response'})
-            post_response = BPFutureMW(run_bp_post_response_mw, args=(), kwargs={'attach_to': 'response'})
+            # from sanic.blueprints import FutureMiddleware as BPFutureMW
+            pre_request = SanicFutureMiddleware(run_bp_pre_request_mw, 'request')
+            post_request = SanicFutureMiddleware(run_bp_post_request_mw, 'request')
+            pre_response = SanicFutureMiddleware(run_bp_pre_response_mw, 'response')
+            post_response = SanicFutureMiddleware(run_bp_post_response_mw, 'response')
             # this order is very important. Don't change it. It is correct.
-            bp_self.middlewares.insert(0, post_response)
-            bp_self.middlewares.insert(0, pre_request)
-            bp_self.middlewares.append(post_request)
-            bp_self.middlewares.append(pre_response)
+            bp_self._future_middleware.insert(0, post_response)
+            bp_self._future_middleware.insert(0, pre_request)
+            bp_self._future_middleware.append(post_request)
+            bp_self._future_middleware.append(pre_response)
 
             orig_register(app, options)
 
@@ -933,16 +947,16 @@ class SanicPluginRealm(object):
         # If there is already one registered on the app, return that one.
         try:
             instance = app.config[APP_CONFIG_INSTANCE_KEY]
-            assert isinstance(instance, cls), (
-                "This app is already registered to a different type of Sanic Plugin Realm!"
-            )
+            assert isinstance(
+                instance, cls
+            ), "This app is already registered to a different type of Sanic Plugin Realm!"
             return instance
         except AttributeError:  # app must then be a blueprint
             try:
                 instance = getattr(app, APP_CONFIG_INSTANCE_KEY)
-                assert isinstance(instance, cls), (
-                    "This Blueprint is already registered to a different type of Sanic Plugin Realm!"
-                )
+                assert isinstance(
+                    instance, cls
+                ), "This Blueprint is already registered to a different type of Sanic Plugin Realm!"
                 return instance
             except AttributeError:
                 pass

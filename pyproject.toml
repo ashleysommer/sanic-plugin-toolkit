@@ -1,10 +1,10 @@
 [build-system]
-requires = ["poetry>=1.1.0"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "Sanic Plugin Toolkit"
-version = "0.99.1a1"
+version = "1.0.0"
 # Don't forget to change the version number in __init__.py along with this one
 description = "The all-in-one toolkit for creating powerful Sanic Plugins"
 license = "MIT"
@@ -22,7 +22,6 @@ classifiers = [
     'Operating System :: OS Independent',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
@@ -37,15 +36,15 @@ packages = [
     { include = "examples", format = "sdist" },
     { include = "tests", format = "sdist" }
 ]
-# Note, when Poetry 1.1.0 is released, we can include some of these only in the sdist
+
 include = [
+    { path = "pyproject.toml", format = "sdist" },
+    { path = "poetry.lock", format = "sdist" },
+    { path = "Makefile", format = "sdist" },
+    { path = "MANIFEST.in", format = "sdist" },
 	"*.md",
 	"*.txt",
     "*.rst",
-	"pyproject.toml",
-    "poetry.lock",
-    "Makefile",
-    "MANIFEST.in"
 ]
 
 [tool.poetry.plugins."sanic_plugins"]
@@ -53,20 +52,22 @@ Contextualize = "sanic_plugin_toolkit.plugins.contextualize:instance"
 
 
 [tool.poetry.dependencies]
-python = "^3.6.1"  # Compatible python versions must be declared here
+python = "^3.7"  # Compatible python versions must be declared here
 setuptools = ">=40.8"
-sanic = { git = "https://github.com/sanic-org/sanic.git", branch = "master" }
+sanic = {version=">=21.3.1,<22" }
+#sanic = { git = "https://github.com/sanic-org/sanic.git", branch = "master" } #version "21.3.0a1"
 
 [tool.poetry.dev-dependencies]
 attrs = "<19.2.0"
 coverage = "^4.5"
 pytest = ">=5.3.0,<6.0.0"
 pytest-cov = ">2.8.1,<3.0"
+pytest-asyncio = "*"
 flake8 = "^3.7"
-pytest-sanic = ">=1.2.0"
-isort = {version="^5.0.0", python=">=3.6"}
-black = {version=">=18.9b0,<=19.10b0", python=">=3.6"}
-mypy = {version="^0.770.0", python=">=3.6"}
+sanic-testing = ">=0.3.0"
+isort = {version="^5.7.0", python=">=3.6"}
+black = {version=">=20.8b1,<21", python=">=3.6"}
+mypy = {version="^0.800.0", python=">=3.6"}
 
 [tool.dephell.main]
 from = {format = "poetry", path = "pyproject.toml"}
@@ -119,7 +120,7 @@ legacy_tox_ini = """
 [tox]
 isolated_build = true
 skipsdist = true
-envlist = py36, py37, py38, py39, {py36,py37,py38,py39}-noext, lint, type-checking
+envlist = py37, py38, py39, {py37,py38,py39}-noext, lint, type-checking
 
 [testenv]
 deps =
@@ -127,8 +128,8 @@ deps =
     py36: coveralls
 passenv = TRAVIS TRAVIS_JOB_ID TRAVIS_BRANCH
 setenv =
-    {py36,py37,py38,py39}-noext: SANIC_NO_UJSON=1
-    {py36,py37,py38,py39}-noext: SANIC_NO_UVLOOP=1
+    {py37,py38,py39}-noext: SANIC_NO_UJSON=1
+    {py37,py38,py39}-noext: SANIC_NO_UVLOOP=1
 skip_install = true
 commands_pre = poetry install -vvv
 commands =

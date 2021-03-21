@@ -6,10 +6,6 @@ cache:
   - "$HOME/.cache/pip"
 matrix:
   include:
-  - env: TOX_ENV=py36
-    python: 3.6
-  - env: TOX_ENV=py36-noext
-    python: 3.6
   - env: TOX_ENV=py37
     python: 3.7
   - env: TOX_ENV=py37-noext
@@ -23,17 +19,17 @@ matrix:
   - env: TOX_ENV=py39-noext
     python: 3.9
   - env: TOX_ENV=lint
-    python: 3.6
-    name: "Python 3.6 Linting"
-  - env: TOX_ENV=type-checking
-    python: 3.6
-    name: "Python 3.6 Type Checking"
+    python: 3.7
+    name: "Python 3.7 Linting"
   - env: TOX_ENV=type-checking
     python: 3.7
     name: "Python 3.7 Type Checking"
   - env: TOX_ENV=type-checking
     python: 3.8
     name: "Python 3.8 Type Checking"
+  - env: TOX_ENV=type-checking
+    python: 3.9
+    name: "Python 3.9 Type Checking"
 
 install: pip3 install -U pip && pip3 install -U tox
 script: tox -e $TOX_ENV

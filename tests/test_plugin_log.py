@@ -22,7 +22,7 @@ def t1(request, context):
 def test_plugin_log1(realm):
     app = realm._app
     plugin = realm.register_plugin(test_plugin)
-    client = app.test_client
+    client = app._test_manager.test_client
     exceptions = None
     try:
         resp = client.get('/t1')

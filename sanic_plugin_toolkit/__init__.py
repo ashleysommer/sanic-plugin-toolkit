@@ -1,7 +1,8 @@
 # -*- coding: latin-1 -*-
 # this is ascii, no unicode in this document
-from .realm import SanicPluginRealm
 from .plugin import SanicPlugin
+from .realm import SanicPluginRealm
 
-__version__ = '0.99.1a1'
+
+__version__ = '1.0.0'
 __all__ = ["SanicPlugin", "SanicPluginRealm", "__version__"]

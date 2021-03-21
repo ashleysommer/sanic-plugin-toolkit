@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-from collections import deque, defaultdict, namedtuple
+import importlib
+
+from collections import defaultdict, deque, namedtuple
 from functools import update_wrapper
 from inspect import isawaitable
-import importlib
-from sanic import Sanic, Blueprint
+from typing import Type
+
+from sanic import Blueprint, Sanic
+
 
 CRITICAL = 50
 ERROR = 40
@@ -33,7 +37,7 @@ class SanicPlugin(object):
         '__weakref__',
     )
 
-    AssociatedTuple = PluginAssociated
+    AssociatedTuple: Type[object] = PluginAssociated
 
     # Decorator
     def middleware(self, *args, **kwargs):
@@ -73,7 +77,7 @@ class SanicPlugin(object):
             if isinstance(args[0], type) and issubclass(args[0], Exception):
                 pass
             else:  # pragma: no cover
-                raise RuntimeError("Cannot use the @exception decorator " "without arguments")
+                raise RuntimeError("Cannot use the @exception decorator without arguments")
 
         def wrapper(handler_f):
             self._exceptions.append(FutureException(handler_f, exceptions=args, kwargs=kwargs))
@@ -93,7 +97,7 @@ class SanicPlugin(object):
         :rtype: fn
         """
         if len(args) == 1 and callable(args[0]):  # pragma: no cover
-            raise RuntimeError("Cannot use the @listener decorator without " "arguments")
+            raise RuntimeError("Cannot use the @listener decorator without arguments")
 
         def wrapper(listener_f):
             if len(kwargs) > 0:
@@ -111,16 +115,22 @@ class SanicPlugin(object):
         :type args: tuple(Any)
         :param kwargs: captures the keyword arguments passed in
         :type kwargs: dict(Any)
-        :return: The exception function to use as the decorator
+        :return: The function to use as the decorator
         :rtype: fn
         """
         if len(args) == 0 and callable(uri):  # pragma: no cover
-            raise RuntimeError("Cannot use the @route decorator without " "arguments.")
+            raise RuntimeError("Cannot use the @route decorator without arguments.")
         kwargs.setdefault('methods', frozenset({'GET'}))
         kwargs.setdefault('host', None)
         kwargs.setdefault('strict_slashes', False)
         kwargs.setdefault('stream', False)
         kwargs.setdefault('name', None)
+        kwargs.setdefault('version', None)
+        kwargs.setdefault('ignore_body', False)
+        kwargs.setdefault('websocket', False)
+        kwargs.setdefault('subprotocols', None)
+        kwargs.setdefault('unquote', False)
+        kwargs.setdefault('static', False)
 
         def wrapper(handler_f):
             self._routes.append(FutureRoute(handler_f, uri, args, kwargs))
@@ -130,26 +140,10 @@ class SanicPlugin(object):
 
     def websocket(self, uri, *args, **kwargs):
         """Create a websocket route from a decorated function
-        :param uri: endpoint at which the socket endpoint will be accessible.
-        :type uri: str
-        :param args: captures all of the positional arguments passed in
-        :type args: tuple(Any)
-        :param kwargs: captures the keyword arguments passed in
-        :type kwargs: dict(Any)
-        :return: The exception function to use as the decorator
-        :rtype: fn
+        deprecated. now use @route("/path",websocket=True)
         """
-
-        kwargs.setdefault('host', None)
-        kwargs.setdefault('strict_slashes', None)
-        kwargs.setdefault('subprotocols', None)
-        kwargs.setdefault('name', None)
-
-        def wrapper(handler_f):
-            self._ws.append(FutureWebsocket(handler_f, uri, args, kwargs))
-            return handler_f
-
-        return wrapper
+        kwargs["websocket"] = True
+        return self.route(uri, *args, **kwargs)
 
     def static(self, uri, file_or_directory, *args, **kwargs):
         """Create a websocket route from a decorated function
@@ -159,7 +153,7 @@ class SanicPlugin(object):
         :type args: tuple(Any)
         :param kwargs: captures the keyword arguments passed in
         :type kwargs: dict(Any)
-        :return: The exception function to use as the decorator
+        :return: The function to use as the decorator
         :rtype: fn
         """
 
@@ -170,6 +164,7 @@ class SanicPlugin(object):
         kwargs.setdefault('name', 'static')
         kwargs.setdefault('host', None)
         kwargs.setdefault('strict_slashes', None)
+        kwargs.setdefault('content_type', None)
 
         self._static.append(FutureStatic(uri, file_or_directory, args, kwargs))
 
@@ -190,14 +185,14 @@ class SanicPlugin(object):
 
     def first_plugin_context(self):
         """Returns the context is associated with the first app this plugin was
-         registered on"""
+        registered on"""
         # Note, because registrations are stored in a set, its not _really_
         # the first one, but whichever one it sees first in the set.
         first_realm_reg = next(iter(self.registrations))
         return self.get_context_from_realm(first_realm_reg)
 
     def get_context_from_realm(self, realm):
-        rt = RuntimeError("Cannot use the plugin's Context before it is " "registered.")
+        rt = RuntimeError("Cannot use the plugin's Context before it is registered.")
         if isinstance(realm, PluginRegistration):
             reg = realm
         else:
@@ -379,9 +374,9 @@ class SanicPlugin(object):
         self, route, request, context, request_args, request_kw, *decorator_args, with_context=None, **decorator_kw
     ):
         """This is the function that is called when a route is decorated with
-           your plugin decorator. Context will normally be None, but the user
-           can pass use_context=True so the route will get the plugin
-           context
+        your plugin decorator. Context will normally be None, but the user
+        can pass use_context=True so the route will get the plugin
+        context
         """
         # by default, do nothing, just run the wrapped function
         if with_context:

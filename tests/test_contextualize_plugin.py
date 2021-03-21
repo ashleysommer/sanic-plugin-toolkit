@@ -37,7 +37,7 @@ def test_contextualize_plugin_route(realm):
 
     ctx.route('/')(handler)
 
-    request, response = app.test_client.get('/')
+    request, response = app._test_manager.test_client.get('/')
     assert response.text == "OK"
 
 def test_contextualize_plugin_middleware(realm):
@@ -64,5 +64,5 @@ def test_contextualize_plugin_middleware(realm):
         assert middleware_ran
         return text('OK')
 
-    request, response = app.test_client.get('/')
+    request, response = app._test_manager.test_client.get('/')
     assert response.text == "OK"

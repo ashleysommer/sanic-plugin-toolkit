@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 from collections import namedtuple
+
 from sanic_plugin_toolkit import SanicPlugin
-from sanic_plugin_toolkit.plugin import FutureRoute, FutureWebsocket, FutureMiddleware
+from sanic_plugin_toolkit.plugin import FutureMiddleware, FutureRoute
+
 
 ContextualizeAssociatedTuple = namedtuple('ContextualizeAssociatedTuple', ['plugin', 'reg'])
 
@@ -55,6 +57,12 @@ class ContextualizeAssociated(ContextualizeAssociatedTuple):
         kwargs.setdefault('strict_slashes', False)
         kwargs.setdefault('stream', False)
         kwargs.setdefault('name', None)
+        kwargs.setdefault('version', None)
+        kwargs.setdefault('ignore_body', False)
+        kwargs.setdefault('websocket', False)
+        kwargs.setdefault('subprotocols', None)
+        kwargs.setdefault('unquote', False)
+        kwargs.setdefault('static', False)
         kwargs['with_context'] = True  # This is the whole point of this plugin
         plugin = self.plugin
         reg = self.reg
@@ -92,30 +100,13 @@ class ContextualizeAssociated(ContextualizeAssociatedTuple):
 
     def websocket(self, uri, *args, **kwargs):
         """Create a websocket route from a decorated function
-        :param uri: endpoint at which the socket endpoint will be accessible.
-        :type uri: str
-        :param args: captures all of the positional arguments passed in
-        :type args: tuple(Any)
-        :param kwargs: captures the keyword arguments passed in
-        :type kwargs: dict(Any)
-        :return: The exception function to use as the decorator
-        :rtype: fn
+        # Deprecated. Use @contextualize.route("/path", websocket=True)
         """
 
-        kwargs.setdefault('host', None)
-        kwargs.setdefault('strict_slashes', None)
-        kwargs.setdefault('subprotocols', None)
-        kwargs.setdefault('name', None)
-        kwargs['with_context'] = True  # This is the whole point of this plugin
-        plugin = self.plugin
-        reg = self.reg
+        kwargs["websocket"] = True
+        kwargs["with_context"] = True  # This is the whole point of this plugin
 
-        def wrapper(handler_f):
-            nonlocal plugin, reg
-            nonlocal uri, args, kwargs
-            return plugin._add_new_ws_route(reg, uri, handler_f, *args, **kwargs)
-
-        return wrapper
+        return self.route(uri, *args, **kwargs)
 
 
 class Contextualize(SanicPlugin):
@@ -155,17 +146,6 @@ class Contextualize(SanicPlugin):
         realm._plugin_register_listener(event, listener_f, self, context, *args, **kwargs)
         return listener_f
 
-    def _add_new_ws_route(self, reg, uri, handler_f, *args, **kwargs):
-        # A user should never call this directly.
-        # it should be called only by the AssociatedTuple
-        assert reg in self.registrations
-        (realm, p_name, url_prefix) = reg
-        context = self.get_context_from_realm(reg)
-        # This is how we add a new route _after_ the plugin is registered
-        w = FutureWebsocket(handler_f, uri, args, kwargs)
-        realm._register_websocket_route_helper(w, realm, self, context, p_name, url_prefix)
-        return handler_f
-
     # Decorator
     def middleware(self, *args, **kwargs):
         """Decorate and register middleware
@@ -203,12 +183,18 @@ class Contextualize(SanicPlugin):
         :rtype: fn
         """
         if len(args) == 0 and callable(uri):
-            raise RuntimeError("Cannot use the @route decorator without " "arguments.")
+            raise RuntimeError("Cannot use the @route decorator without arguments.")
         kwargs.setdefault('methods', frozenset({'GET'}))
         kwargs.setdefault('host', None)
         kwargs.setdefault('strict_slashes', False)
         kwargs.setdefault('stream', False)
         kwargs.setdefault('name', None)
+        kwargs.setdefault('version', None)
+        kwargs.setdefault('ignore_body', False)
+        kwargs.setdefault('websocket', False)
+        kwargs.setdefault('subprotocols', None)
+        kwargs.setdefault('unquote', False)
+        kwargs.setdefault('static', False)
         kwargs['with_context'] = True  # This is the whole point of this plugin
 
         def wrapper(handler_f):
@@ -230,7 +216,7 @@ class Contextualize(SanicPlugin):
         :rtype: fn
         """
         if len(args) == 1 and callable(args[0]):
-            raise RuntimeError("Cannot use the @listener decorator without " "arguments")
+            raise RuntimeError("Cannot use the @listener decorator without arguments")
         kwargs['with_context'] = True  # This is the whole point of this plugin
 
         def wrapper(listener_f):
@@ -241,27 +227,13 @@ class Contextualize(SanicPlugin):
 
     def websocket(self, uri, *args, **kwargs):
         """Create a websocket route from a decorated function
-        :param uri: endpoint at which the socket endpoint will be accessible.
-        :type uri: str
-        :param args: captures all of the positional arguments passed in
-        :type args: tuple(Any)
-        :param kwargs: captures the keyword arguments passed in
-        :type kwargs: dict(Any)
-        :return: The exception function to use as the decorator
-        :rtype: fn
+        # Deprecated. Use @contextualize.route("/path",websocket=True)
         """
 
-        kwargs.setdefault('host', None)
-        kwargs.setdefault('strict_slashes', None)
-        kwargs.setdefault('subprotocols', None)
-        kwargs.setdefault('name', None)
-        kwargs['with_context'] = True  # This is the whole point of this plugin
+        kwargs["websocket"] = True
+        kwargs["with_context"] = True  # This is the whole point of this plugin
 
-        def wrapper(handler_f):
-            nonlocal self, uri, args, kwargs
-            return super(Contextualize, self).websocket(uri, *args, **kwargs)(handler_f)
-
-        return wrapper
+        return self.route(uri, *args, **kwargs)
 
     def __init__(self, *args, **kwargs):
         super(Contextualize, self).__init__(*args, **kwargs)

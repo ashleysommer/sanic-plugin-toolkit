@@ -23,7 +23,7 @@ def test_plugin_pickle_unpickle(realm):
     p1 = pickle.dumps(test_plugin)
     p2 = pickle.loads(p1)
     realm.register_plugin(p2)
-    client = app.test_client
+    client = app._test_manager.test_client
     resp = client.get('/t1')
     assert resp[1].text == 't1'
 

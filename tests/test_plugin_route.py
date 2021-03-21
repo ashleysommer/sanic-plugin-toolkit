@@ -1,10 +1,11 @@
 from urllib.parse import urlparse
-from sanic import Sanic
-from sanic.response import text
-from sanic import testing
-from sanic_plugin_toolkit import SanicPluginRealm, SanicPlugin
+
 import pytest
 
+from sanic import Sanic
+from sanic.response import text
+
+from sanic_plugin_toolkit import SanicPlugin, SanicPluginRealm
 from sanic_plugin_toolkit.context import HierDict, SanicContext
 
 
@@ -13,11 +14,13 @@ class TestPlugin(SanicPlugin):
 
 
 @pytest.mark.parametrize(
-    'path,query,expected_url', [
+    'path,query,expected_url',
+    [
         ('/foo', '', 'http://{}:{}/foo'),
         ('/bar/baz', '', 'http://{}:{}/bar/baz'),
-        ('/moo/boo', 'arg1=val1', 'http://{}:{}/moo/boo?arg1=val1')
-    ])
+        ('/moo/boo', 'arg1=val1', 'http://{}:{}/moo/boo?arg1=val1'),
+    ],
+)
 def test_plugin_url_attributes(realm, path, query, expected_url):
     app = realm._app
     test_plugin = TestPlugin()
@@ -28,15 +31,17 @@ def test_plugin_url_attributes(realm, path, query, expected_url):
     test_plugin.route(path)(handler)
 
     realm.register_plugin(test_plugin)
-    test_client = app.test_client
+    test_client = app._test_manager.test_client
     request, response = test_client.get(path + '?{}'.format(query))
     try:
         # Sanic 20.3.0 and above
         p = test_client.port
+        h = test_client.host
     except AttributeError:
-        p = testing.PORT or 0
+        p = 0
+        h = "127.0.0.1"
 
-    assert request.url == expected_url.format(testing.HOST, str(p))
+    assert request.url == expected_url.format(h, str(p))
 
     parsed = urlparse(request.url)
 
@@ -44,6 +49,7 @@ def test_plugin_url_attributes(realm, path, query, expected_url):
     assert parsed.path == request.path
     assert parsed.query == request.query_string
     assert parsed.netloc == request.host
+
 
 def test_plugin_route_context(realm):
     app = realm._app
@@ -79,5 +85,5 @@ def test_plugin_route_context(realm):
     test_plugin.route('/', with_context=True)(handler)
 
     realm.register_plugin(test_plugin)
-    request, response = app.test_client.get('/')
+    request, response = app._test_manager.test_client.get('/')
     assert response.text == "OK"

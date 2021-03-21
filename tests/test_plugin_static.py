@@ -82,7 +82,7 @@ def test_static_file(realm, static_file_directory, file_name):
         "/testing.file", get_file_path(static_file_directory, file_name)
     )
     realm.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
+    request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
 
@@ -97,7 +97,7 @@ def test_static_file_content_type(realm, static_file_directory, file_name):
         content_type="text/html; charset=utf-8",
     )
     realm.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
+    request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
     assert response.headers["Content-Type"] == "text/html; charset=utf-8"
@@ -112,7 +112,7 @@ def test_static_directory(realm, file_name, base_uri, static_file_directory):
     plugin = TestPlugin()
     plugin.static(base_uri, static_file_directory)
     realm.register_plugin(plugin)
-    request, response = app.test_client.get(
+    request, response = app._test_manager.test_client.get(
         uri="{}/{}".format(base_uri, file_name)
     )
     assert response.status == 200
@@ -129,7 +129,7 @@ def test_static_head_request(realm, file_name, static_file_directory):
         use_content_range=True,
     )
     realm.register_plugin(plugin)
-    request, response = app.test_client.head("/testing.file")
+    request, response = app._test_manager.test_client.head("/testing.file")
     assert response.status == 200
     assert "Accept-Ranges" in response.headers
     assert "Content-Length" in response.headers
@@ -149,7 +149,7 @@ def test_static_content_range_correct(realm, file_name, static_file_directory):
     )
     realm.register_plugin(plugin)
     headers = {"Range": "bytes=12-19"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
@@ -171,7 +171,7 @@ def test_static_content_range_front(realm, file_name, static_file_directory):
     )
     realm.register_plugin(plugin)
     headers = {"Range": "bytes=12-"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
@@ -193,7 +193,7 @@ def test_static_content_range_back(realm, file_name, static_file_directory):
     )
     realm.register_plugin(plugin)
     headers = {"Range": "bytes=-12"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
@@ -218,7 +218,7 @@ def test_static_content_range_empty(
         use_modified_since=use_modified_since,
     )
     realm.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
+    request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 200
     assert "Content-Length" in response.headers
     assert "Content-Range" not in response.headers
@@ -241,7 +241,7 @@ def test_static_content_range_error(realm, file_name, static_file_directory):
     )
     realm.register_plugin(plugin)
     headers = {"Range": "bytes=1-0"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 416
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
@@ -264,7 +264,7 @@ def test_static_content_range_invalid_unit(
     realm.register_plugin(plugin)
     unit = "bit"
     headers = {"Range": "{}=1-0".format(unit)}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
     assert "{} is not a valid Range Type".format(unit) in response.text
@@ -284,7 +284,7 @@ def test_static_content_range_invalid_start(
     realm.register_plugin(plugin)
     start = "start"
     headers = {"Range": "bytes={}-0".format(start)}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
     assert "'{}' is invalid for Content Range".format(start) in response.text
@@ -304,7 +304,7 @@ def test_static_content_range_invalid_end(
     realm.register_plugin(plugin)
     end = "end"
     headers = {"Range": "bytes=1-{}".format(end)}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
     assert "'{}' is invalid for Content Range".format(end) in response.text
@@ -323,7 +323,7 @@ def test_static_content_range_invalid_parameters(
     )
     realm.register_plugin(plugin)
     headers = {"Range": "bytes=-"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
     assert "Invalid for Content Range parameters" in response.text
@@ -342,10 +342,10 @@ def test_static_file_specified_host(realm, static_file_directory, file_name):
     )
     realm.register_plugin(plugin)
     headers = {"Host": "www.example.com"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
-    request, response = app.test_client.get("/testing.file")
+    request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 404
 
 
@@ -369,7 +369,7 @@ def test_static_stream_large_file(
         stream_large_files=stream_large_files,
     )
     realm.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
+    request, response = app._test_manager.test_client.get("/testing.file")
 
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
@@ -392,7 +392,7 @@ def test_use_modified_since(realm, static_file_directory, file_name):
         use_modified_since=True,
     )
     realm.register_plugin(plugin)
-    request, response = app.test_client.get(
+    request, response = app._test_manager.test_client.get(
         "/testing.file", headers={"If-Modified-Since": modified_since}
     )
 
@@ -404,7 +404,7 @@ def test_file_not_found(realm, static_file_directory):
     plugin = TestPlugin()
     plugin.static("/static", static_file_directory)
     realm.register_plugin(plugin)
-    request, response = app.test_client.get("/static/not_found")
+    request, response = app._test_manager.test_client.get("/static/not_found")
 
     assert response.status == 404
     assert "File not found" in response.text
@@ -417,6 +417,6 @@ def test_static_name(realm, static_file_directory, static_name, file_name):
     plugin = TestPlugin()
     plugin.static("/static", static_file_directory, name=static_name)
     realm.register_plugin(plugin)
-    request, response = app.test_client.get("/static/{}".format(file_name))
+    request, response = app._test_manager.test_client.get("/static/{}".format(file_name))
 
     assert response.status == 200
