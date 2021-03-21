@@ -1,0 +1,157 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "Sanic Plugin Toolkit"
+version = "1.0.0"
+# Don't forget to change the version number in __init__.py along with this one
+description = "The all-in-one toolkit for creating powerful Sanic Plugins"
+license = "MIT"
+authors = [
+    "Ashley Sommer <ashleysommer@gmail.com>"
+]
+readme = "README.rst"
+repository = "https://github.com/ashleysommer/sanicplugintoolkit"
+homepage = "https://github.com/ashleysommer/sanicplugintoolkit"
+keywords = ["sanic", "plugin", "toolkit"]
+classifiers = [
+    'Environment :: Web Environment',
+    'Intended Audience :: Developers',
+    'License :: OSI Approved :: MIT License',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: Implementation :: CPython',
+    'Programming Language :: Python :: Implementation :: PyPy',
+    'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+    'Topic :: Software Development :: Libraries :: Python Modules'
+]
+packages = [
+    { include = "sanic_plugin_toolkit" },
+    { include = "sanic_plugin_toolkit/plugins" },
+    { include = "examples", format = "sdist" },
+    { include = "tests", format = "sdist" }
+]
+
+include = [
+    { path = "pyproject.toml", format = "sdist" },
+    { path = "poetry.lock", format = "sdist" },
+    { path = "Makefile", format = "sdist" },
+    { path = "MANIFEST.in", format = "sdist" },
+	"*.md",
+	"*.txt",
+    "*.rst",
+]
+
+[tool.poetry.plugins."sanic_plugins"]
+Contextualize = "sanic_plugin_toolkit.plugins.contextualize:instance"
+
+
+[tool.poetry.dependencies]
+python = "^3.7"  # Compatible python versions must be declared here
+setuptools = ">=40.8"
+sanic = {version=">=21.3.1,<22" }
+#sanic = { git = "https://github.com/sanic-org/sanic.git", branch = "master" } #version "21.3.0a1"
+
+[tool.poetry.dev-dependencies]
+attrs = "<19.2.0"
+coverage = "^4.5"
+pytest = ">=5.3.0,<6.0.0"
+pytest-cov = ">2.8.1,<3.0"
+pytest-asyncio = "*"
+flake8 = "^3.7"
+sanic-testing = ">=0.3.0"
+isort = {version="^5.7.0", python=">=3.6"}
+black = {version=">=20.8b1,<21", python=">=3.6"}
+mypy = {version="^0.800.0", python=">=3.6"}
+
+[tool.dephell.main]
+from = {format = "poetry", path = "pyproject.toml"}
+to = {format = "setuppy", path = "setup.py"}
+
+[tool.black]
+line-length = "119"
+skip-string-normalization = true
+target-version = ['py36']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.pytest_cache
+    | \.tox
+    | \.venv
+    | _build
+    | htmlcov
+    | benchmarks
+    | examples
+    | sanic_plugin_toolkit.egg-info
+    | buck-out
+    | build
+    | dist
+    | venv
+  )/
+)
+'''
+
+[tool.isort]
+atomic = true
+default_section = "THIRDPARTY"
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+known_first_party = "sanic_plugin_toolkit"
+known_third_party = ["pytest"]
+line_length = 119
+lines_after_imports = 2
+lines_between_types = 1
+multi_line_output = 3
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = true
+skipsdist = true
+envlist = py37, py38, py39, {py37,py38,py39}-noext, lint, type-checking
+
+[testenv]
+deps =
+    poetry>=1.1.0
+    py36: coveralls
+passenv = TRAVIS TRAVIS_JOB_ID TRAVIS_BRANCH
+setenv =
+    {py37,py38,py39}-noext: SANIC_NO_UJSON=1
+    {py37,py38,py39}-noext: SANIC_NO_UVLOOP=1
+skip_install = true
+commands_pre = poetry install -vvv
+commands =
+    - poetry show
+    poetry run pytest tests --cov=sanic_plugin_toolkit --cov-report= {posargs}
+    - poetry run coverage combine --append
+    poetry run coverage report -m
+    poetry run coverage html -i
+    py36: - coveralls
+
+[testenv:lint]
+commands =
+    - poetry show
+    poetry run flake8 sanic_plugin_toolkit
+    poetry run flake8 sanic_plugin_toolkit/plugins
+    poetry run isort --check-only sanic_plugin_toolkit
+    poetry run black --check --verbose --config ./pyproject.toml sanic_plugin_toolkit
+
+[testenv:type-checking]
+commands =
+    - poetry show
+    poetry run mypy --ignore-missing-imports sanic_plugin_toolkit
+
+"""
+

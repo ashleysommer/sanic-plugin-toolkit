@@ -1,7 +1,7 @@
 import pickle
 
 from sanic import Sanic
-from spf import SanicPlugin, SanicPluginsFramework
+from sanic_plugin_toolkit import SanicPlugin, SanicPluginRealm
 from sanic.response import text
 
 from logging import DEBUG
@@ -55,9 +55,9 @@ def t1(request):
 
 app = Sanic(__name__)
 mp = MyPlugin(app)
-spf = SanicPluginsFramework(app)
+realm = SanicPluginRealm(app)
 try:
-    assoc_reg = spf.register_plugin(MyPlugin)  # already registered! (line 57)
+    assoc_reg = realm.register_plugin(MyPlugin)  # already registered! (line 57)
 except ValueError as ve:
     assoc_reg = ve.args[1]
 

@@ -1,7 +1,7 @@
 import pickle
 
 from sanic import Sanic
-from spf import SanicPlugin, SanicPluginsFramework
+from sanic_plugin_toolkit import SanicPlugin, SanicPluginRealm
 from sanic.response import text
 
 from logging import DEBUG
@@ -22,8 +22,8 @@ def mw1(request, context):
 
 
 app = Sanic(__name__)
-spf = SanicPluginsFramework(app)
-assoc_reg = spf.register_plugin(instance)
+realm = SanicPluginRealm(app)
+assoc_reg = realm.register_plugin(instance)
 
 @app.route('/')
 def index(request):

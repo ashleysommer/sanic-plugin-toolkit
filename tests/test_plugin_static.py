@@ -2,7 +2,7 @@ import inspect
 import os
 from time import gmtime, strftime
 import pytest
-from spf import SanicPlugin
+from sanic_plugin_toolkit import SanicPlugin
 
 
 class TestPlugin(SanicPlugin):
@@ -75,29 +75,29 @@ def hard_link(static_file_directory):
     "file_name",
     ["test.file", "decode me.txt", "python.png", "symlink", "hard_link"],
 )
-def test_static_file(spf, static_file_directory, file_name):
-    app = spf._app
+def test_static_file(realm, static_file_directory, file_name):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file", get_file_path(static_file_directory, file_name)
     )
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
 
 
 @pytest.mark.parametrize("file_name", ["test.html"])
-def test_static_file_content_type(spf, static_file_directory, file_name):
-    app = spf._app
+def test_static_file_content_type(realm, static_file_directory, file_name):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         content_type="text/html; charset=utf-8",
     )
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
     assert response.headers["Content-Type"] == "text/html; charset=utf-8"
@@ -107,12 +107,12 @@ def test_static_file_content_type(spf, static_file_directory, file_name):
     "file_name", ["test.file", "decode me.txt", "symlink", "hard_link"]
 )
 @pytest.mark.parametrize("base_uri", ["/static", "", "/dir"])
-def test_static_directory(spf, file_name, base_uri, static_file_directory):
-    app = spf._app
+def test_static_directory(realm, file_name, base_uri, static_file_directory):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(base_uri, static_file_directory)
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get(
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.get(
         uri="{}/{}".format(base_uri, file_name)
     )
     assert response.status == 200
@@ -120,16 +120,16 @@ def test_static_directory(spf, file_name, base_uri, static_file_directory):
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_head_request(spf, file_name, static_file_directory):
-    app = spf._app
+def test_static_head_request(realm, file_name, static_file_directory):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
-    request, response = app.test_client.head("/testing.file")
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.head("/testing.file")
     assert response.status == 200
     assert "Accept-Ranges" in response.headers
     assert "Content-Length" in response.headers
@@ -139,17 +139,17 @@ def test_static_head_request(spf, file_name, static_file_directory):
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_correct(spf, file_name, static_file_directory):
-    app = spf._app
+def test_static_content_range_correct(realm, file_name, static_file_directory):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     headers = {"Range": "bytes=12-19"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
@@ -161,17 +161,17 @@ def test_static_content_range_correct(spf, file_name, static_file_directory):
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_front(spf, file_name, static_file_directory):
-    app = spf._app
+def test_static_content_range_front(realm, file_name, static_file_directory):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     headers = {"Range": "bytes=12-"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
@@ -183,17 +183,17 @@ def test_static_content_range_front(spf, file_name, static_file_directory):
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_back(spf, file_name, static_file_directory):
-    app = spf._app
+def test_static_content_range_back(realm, file_name, static_file_directory):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     headers = {"Range": "bytes=-12"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
@@ -207,9 +207,9 @@ def test_static_content_range_back(spf, file_name, static_file_directory):
 @pytest.mark.parametrize("use_modified_since", [True, False])
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
 def test_static_content_range_empty(
-    spf, file_name, static_file_directory, use_modified_since
+    realm, file_name, static_file_directory, use_modified_since
 ):
-    app = spf._app
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
@@ -217,8 +217,8 @@ def test_static_content_range_empty(
         use_content_range=True,
         use_modified_since=use_modified_since,
     )
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 200
     assert "Content-Length" in response.headers
     assert "Content-Range" not in response.headers
@@ -231,17 +231,17 @@ def test_static_content_range_empty(
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_error(spf, file_name, static_file_directory):
-    app = spf._app
+def test_static_content_range_error(realm, file_name, static_file_directory):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     headers = {"Range": "bytes=1-0"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 416
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
@@ -252,19 +252,19 @@ def test_static_content_range_error(spf, file_name, static_file_directory):
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
 def test_static_content_range_invalid_unit(
-    spf, file_name, static_file_directory
+    realm, file_name, static_file_directory
 ):
-    app = spf._app
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     unit = "bit"
     headers = {"Range": "{}=1-0".format(unit)}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
     assert "{} is not a valid Range Type".format(unit) in response.text
@@ -272,19 +272,19 @@ def test_static_content_range_invalid_unit(
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
 def test_static_content_range_invalid_start(
-    spf, file_name, static_file_directory
+    realm, file_name, static_file_directory
 ):
-    app = spf._app
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     start = "start"
     headers = {"Range": "bytes={}-0".format(start)}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
     assert "'{}' is invalid for Content Range".format(start) in response.text
@@ -292,19 +292,19 @@ def test_static_content_range_invalid_start(
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
 def test_static_content_range_invalid_end(
-    spf, file_name, static_file_directory
+    realm, file_name, static_file_directory
 ):
-    app = spf._app
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     end = "end"
     headers = {"Range": "bytes=1-{}".format(end)}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
     assert "'{}' is invalid for Content Range".format(end) in response.text
@@ -312,18 +312,18 @@ def test_static_content_range_invalid_end(
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
 def test_static_content_range_invalid_parameters(
-    spf, file_name, static_file_directory
+    realm, file_name, static_file_directory
 ):
-    app = spf._app
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_content_range=True,
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     headers = {"Range": "bytes=-"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
 
     assert response.status == 416
     assert "Invalid for Content Range parameters" in response.text
@@ -332,20 +332,20 @@ def test_static_content_range_invalid_parameters(
 @pytest.mark.parametrize(
     "file_name", ["test.file", "decode me.txt", "python.png"]
 )
-def test_static_file_specified_host(spf, static_file_directory, file_name):
-    app = spf._app
+def test_static_file_specified_host(realm, static_file_directory, file_name):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         host="www.example.com",
     )
-    spf.register_plugin(plugin)
+    realm.register_plugin(plugin)
     headers = {"Host": "www.example.com"}
-    request, response = app.test_client.get("/testing.file", headers=headers)
+    request, response = app._test_manager.test_client.get("/testing.file", headers=headers)
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
-    request, response = app.test_client.get("/testing.file")
+    request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 404
 
 
@@ -353,14 +353,14 @@ def test_static_file_specified_host(spf, static_file_directory, file_name):
 @pytest.mark.parametrize("stream_large_files", [True, 1024])
 @pytest.mark.parametrize("file_name", ["test.file", "large.file"])
 def test_static_stream_large_file(
-    spf,
+    realm,
     static_file_directory,
     file_name,
     use_modified_since,
     stream_large_files,
     large_file,
 ):
-    app = spf._app
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
@@ -368,8 +368,8 @@ def test_static_stream_large_file(
         use_modified_since=use_modified_since,
         stream_large_files=stream_large_files,
     )
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get("/testing.file")
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.get("/testing.file")
 
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
@@ -378,33 +378,33 @@ def test_static_stream_large_file(
 @pytest.mark.parametrize(
     "file_name", ["test.file", "decode me.txt", "python.png"]
 )
-def test_use_modified_since(spf, static_file_directory, file_name):
+def test_use_modified_since(realm, static_file_directory, file_name):
 
     file_stat = os.stat(get_file_path(static_file_directory, file_name))
     modified_since = strftime(
         "%a, %d %b %Y %H:%M:%S GMT", gmtime(file_stat.st_mtime)
     )
-    app = spf._app
+    app = realm._app
     plugin = TestPlugin()
     plugin.static(
         "/testing.file",
         get_file_path(static_file_directory, file_name),
         use_modified_since=True,
     )
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get(
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.get(
         "/testing.file", headers={"If-Modified-Since": modified_since}
     )
 
     assert response.status == 304
 
 
-def test_file_not_found(spf, static_file_directory):
-    app = spf._app
+def test_file_not_found(realm, static_file_directory):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static("/static", static_file_directory)
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get("/static/not_found")
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.get("/static/not_found")
 
     assert response.status == 404
     assert "File not found" in response.text
@@ -412,11 +412,11 @@ def test_file_not_found(spf, static_file_directory):
 
 @pytest.mark.parametrize("static_name", ["_static_name", "static"])
 @pytest.mark.parametrize("file_name", ["test.html"])
-def test_static_name(spf, static_file_directory, static_name, file_name):
-    app = spf._app
+def test_static_name(realm, static_file_directory, static_name, file_name):
+    app = realm._app
     plugin = TestPlugin()
     plugin.static("/static", static_file_directory, name=static_name)
-    spf.register_plugin(plugin)
-    request, response = app.test_client.get("/static/{}".format(file_name))
+    realm.register_plugin(plugin)
+    request, response = app._test_manager.test_client.get("/static/{}".format(file_name))
 
     assert response.status == 200

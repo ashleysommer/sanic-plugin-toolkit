@@ -1,6 +1,6 @@
 [run]
 branch = True
-source = spf
+source = sanic_plugin_toolkit
 omit = site-packages
 
 [html]

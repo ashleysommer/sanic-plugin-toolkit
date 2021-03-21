@@ -1,6 +1,6 @@
 from sanic import Sanic
 from sanic.response import text, redirect
-from spf import SanicPlugin, SanicPluginsFramework
+from sanic_plugin_toolkit import SanicPlugin, SanicPluginRealm
 from functools import partial
 import logging
 
@@ -19,10 +19,10 @@ def t1(request, context):
     return text("t1")
 
 
-def test_plugin_log1(spf):
-    app = spf._app
-    plugin = spf.register_plugin(test_plugin)
-    client = app.test_client
+def test_plugin_log1(realm):
+    app = realm._app
+    plugin = realm.register_plugin(test_plugin)
+    client = app._test_manager.test_client
     exceptions = None
     try:
         resp = client.get('/t1')

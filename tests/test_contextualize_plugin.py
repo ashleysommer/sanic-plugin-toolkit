@@ -1,15 +1,15 @@
 from urllib.parse import urlparse
 from sanic import Sanic
 from sanic.response import text
-from spf import SanicPluginsFramework, SanicPlugin
-from spf.plugins import contextualize
+from sanic_plugin_toolkit import SanicPluginRealm, SanicPlugin
+from sanic_plugin_toolkit.plugins import contextualize
 import pytest
 
-from spf.context import HierDict
+from sanic_plugin_toolkit.context import HierDict
 
-def test_contextualize_plugin_route(spf):
-    app = spf._app
-    ctx = spf.register_plugin(contextualize)
+def test_contextualize_plugin_route(realm):
+    app = realm._app
+    ctx = realm.register_plugin(contextualize)
 
     async def handler(request, context):
         assert isinstance(context, HierDict)
@@ -37,12 +37,12 @@ def test_contextualize_plugin_route(spf):
 
     ctx.route('/')(handler)
 
-    request, response = app.test_client.get('/')
+    request, response = app._test_manager.test_client.get('/')
     assert response.text == "OK"
 
-def test_contextualize_plugin_middleware(spf):
-    app = spf._app
-    ctx = spf.register_plugin(contextualize)
+def test_contextualize_plugin_middleware(realm):
+    app = realm._app
+    ctx = realm.register_plugin(contextualize)
 
     @ctx.middleware(attach_to='request')
     async def mw1(request, context):
@@ -64,5 +64,5 @@ def test_contextualize_plugin_middleware(spf):
         assert middleware_ran
         return text('OK')
 
-    request, response = app.test_client.get('/')
+    request, response = app._test_manager.test_client.get('/')
     assert response.text == "OK"

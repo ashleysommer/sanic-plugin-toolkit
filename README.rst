@@ -1,30 +1,29 @@
-Sanic Plugins Framework
-=======================
+Sanic Plugin Toolkit
+====================
 
 |Build Status| |Latest Version| |Supported Python versions| |License|
 
-Welcome to the Sanic Plugins Framework.
+Welcome to the Sanic Plugin Toolkit.
 
-The Sanic Plugins Framework (SPF) is a lightweight python library aimed at making it as simple as possible to build
+The Sanic Plugin Toolkit (SPTK) is a lightweight python library aimed at making it as simple as possible to build
 plugins for the Sanic Async HTTP Server.
 
-The SPF provides a `SanicPlugin` python base object that your plugin can build upon. It is set up with all of the basic
+The SPTK provides a `SanicPlugin` python base object that your plugin can build upon. It is set up with all of the basic
 functionality that the majority of Sanic Plugins will need.
 
-A SPF Sanic Plugin is implemented in a similar way to Sanic Blueprints. You can use convenience decorators to set up all
+A SPTK Sanic Plugin is implemented in a similar way to Sanic Blueprints. You can use convenience decorators to set up all
 of the routes, middleware, exception handlers, and listeners your plugin uses in the same way you would a blueprint,
 and any Application developer can import your plugin and register it into their application.
 
-The Sanic Plugins Framework is more than just a Blueprints-like system for Plugins. It provides an enhanced middleware
+The Sanic Plugin Toolkit is more than just a Blueprints-like system for Plugins. It provides an enhanced middleware
 system, and manages Context objects.
 
-**Notice:** Please update to SPF v0.9.0 if you need compatibility with Sanic v19.12+. See `here <https://github.com/huge-success/sanic/issues/1749#issuecomment-571881532>`_ for more details.
-
+**Notice:** Please update to SPTK v0.90.1 if you need compatibility with Sanic v21.03+.
 
 The Enhanced Middleware System
 ------------------------------
 
-The Middleware system in the Sanic Plugins Framework both builds upon and extends the native Sanic middleware system.
+The Middleware system in the Sanic Plugin Toolkit both builds upon and extends the native Sanic middleware system.
 Rather than simply having two middleware queues ('request', and 'response'), the middleware system in SPF uses five
 additional queues.
 
@@ -59,17 +58,17 @@ Install the extension with using pip, or easy\_install.
 
 .. code:: bash
 
-    $ pip install -U sanic-plugins-framework
+    $ pip install -U sanic-plugin-toolkit
 
 Usage
 -----
 
-A simple plugin written using the Sanic Plugins Framework will look like this:
+A simple plugin written using the Sanic Plugin Toolkit will look like this:
 
 .. code:: python
 
     # Source: my_plugin.py
-    from spf import SanicPlugin
+    from sanic_plugin_toolkit import SanicPlugin
     from sanic.response import text
 
     class MyPlugin(SanicPlugin):
@@ -135,13 +134,13 @@ The Application developer can use your plugin in their code like this:
 
     # Source: app.py
     from sanic import Sanic
-    from spf import SanicPluginsFramework
+    from sanic_plugin_toolkit import SanicPluginRealm
     from sanic.response import text
     import my_plugin
 
     app = Sanic(__name__)
-    spf = SanicPluginsFramework(app)
-    assoc = spf.register_plugin(my_plugin)
+    realm = SanicPluginRealm(app)
+    assoc = realm.register_plugin(my_plugin)
 
     # ... rest of user app here
 
@@ -150,7 +149,7 @@ There is support for using a config file to define the list of plugins to load w
 
 .. code:: ini
 
-    # Source: spf.ini
+    # Source: sptk.ini
     [plugins]
     MyPlugin
     AnotherPlugin=ExampleArg,False,KWArg1=True,KWArg2=33.3
@@ -159,9 +158,9 @@ There is support for using a config file to define the list of plugins to load w
 
     # Source: app.py
     app = Sanic(__name__)
-    app.config['SPF_LOAD_INI'] = True
-    app.config['SPF_INI_FILE'] = 'spf.ini'
-    spf = SanicPluginsFramework(app)
+    app.config['SPTK_LOAD_INI'] = True
+    app.config['SPTK_INI_FILE'] = 'sptk.ini'
+    realm = SanicPluginRealm(app)
 
     # We can get the assoc object from SPF, it is already registered
     assoc = spf.get_plugin_assoc('MyPlugin')

@@ -1,18 +1,24 @@
 from sanic import Sanic
-from sanic.response import text
-from sanic.exceptions import InvalidUsage, ServerError, NotFound
+from sanic.exceptions import InvalidUsage, NotFound, ServerError
 from sanic.handlers import ErrorHandler
-from spf import SanicPlugin, SanicPluginsFramework
+from sanic.response import text
+from sanic_testing import TestManager
+
+from sanic_plugin_toolkit import SanicPlugin, SanicPluginRealm
+
 
 class TestPlugin(SanicPlugin):
     pass
+
 
 # The following tests are taken directly from Sanic source @ v0.6.0
 # and modified to test the SanicPlugin, rather than Sanic
 
 exception_handler_app = Sanic('test_exception_handler')
-spf = SanicPluginsFramework(exception_handler_app)
+test_manager = TestManager(exception_handler_app)
+realm = SanicPluginRealm(exception_handler_app)
 test_plugin = TestPlugin()
+
 
 @test_plugin.route('/1')
 def handler_1(request):
@@ -32,7 +38,7 @@ def handler_3(request):
 @test_plugin.route('/4')
 def handler_4(request):
     # noinspection PyUnresolvedReferences
-    foo = bar    # noqa -- F821 undefined name 'bar' is done to throw exception
+    foo = bar  # noqa -- F821 undefined name 'bar' is done to throw exception
     return text(foo)
 
 
@@ -40,6 +46,7 @@ def handler_4(request):
 def handler_5(request):
     class CustomServerError(ServerError):
         pass
+
     raise CustomServerError('Custom server error')
 
 
@@ -56,37 +63,40 @@ def handler_6(request, arg):
 def handler_exception(request, exception):
     return text("OK")
 
-spf.register_plugin(test_plugin)
+
+realm.register_plugin(test_plugin)
+
 
 def test_invalid_usage_exception_handler():
-    request, response = exception_handler_app.test_client.get('/1')
+    request, response = test_manager.test_client.get('/1')
     assert response.status == 400
 
 
 def test_server_error_exception_handler():
-    request, response = exception_handler_app.test_client.get('/2')
+    request, response = test_manager.test_client.get('/2')
     assert response.status == 200
     assert response.text == 'OK'
 
 
 def test_not_found_exception_handler():
-    request, response = exception_handler_app.test_client.get('/3')
+    request, response = test_manager.test_client.get('/3')
     assert response.status == 200
 
 
 def test_text_exception__handler():
-    request, response = exception_handler_app.test_client.get('/random')
+    request, response = test_manager.test_client.get('/random')
     assert response.status == 200
     assert response.text == 'OK'
 
 
 def test_html_traceback_output_in_debug_mode():
-    request, response = exception_handler_app.test_client.get(
-        '/4', debug=True)
+    request, response = test_manager.test_client.get('/4', debug=True)
     assert response.status == 500
     html = str(response.body)
 
-    assert 'response = handler(request, *args, **kwargs)' in html
+    assert ('response = handler(request, *args, **kwargs)' in html) or (
+        'response = handler(request, **kwargs)' in html
+    )
     assert 'handler_4' in html
     assert 'foo = bar' in html
 
@@ -101,27 +111,39 @@ def test_html_traceback_output_in_debug_mode():
         summary_start += 19
         summary_end = html.index("</code>", summary_start)
     summary_text = html[summary_start:summary_end]
-    summary_text = summary_text.replace("  ", " ").replace("\n", "").replace('\\n', "").replace('\t', "")\
-        .replace('\\t', "").replace('\\\'','\'').replace("<b>", "").replace("</b>", "").replace("<p>", "")\
-        .replace("</p>", "").replace("<code>", "").replace("</code>", "").replace("  ", " ")
+    summary_text = (
+        summary_text.replace("  ", " ")
+        .replace("\n", "")
+        .replace('\\n', "")
+        .replace('\t', "")
+        .replace('\\t', "")
+        .replace('\\\'', '\'')
+        .replace("<b>", "")
+        .replace("</b>", "")
+        .replace("<p>", "")
+        .replace("</p>", "")
+        .replace("<code>", "")
+        .replace("</code>", "")
+        .replace("  ", " ")
+    )
     assert "NameError: name \'bar\' is not defined" in summary_text
     assert "while handling path /4" in summary_text
 
 
-
 def test_inherited_exception_handler():
-    request, response = exception_handler_app.test_client.get('/5')
+    request, response = test_manager.test_client.get('/5')
     assert response.status == 200
 
 
 def test_chained_exception_handler():
-    request, response = exception_handler_app.test_client.get(
-        '/6/0', debug=True)
+    request, response = test_manager.test_client.get('/6/0', debug=True)
     assert response.status == 500
 
     html = str(response.body)
 
-    assert 'response = handler(request, *args, **kwargs)' in html
+    assert ('response = handler(request, *args, **kwargs)' in html) or (
+        'response = handler(request, **kwargs)' in html
+    )
     assert 'handler_6' in html
     assert 'foo = 1 / arg' in html
     assert 'ValueError' in html
@@ -138,9 +160,21 @@ def test_chained_exception_handler():
         summary_start += 19
         summary_end = html.index("</code>", summary_start)
     summary_text = html[summary_start:summary_end]
-    summary_text = summary_text.replace("  ", " ").replace("\n", "").replace('\\n', "").replace('\t', "")\
-        .replace('\\t', "").replace('\\\'','\'').replace("<b>", "").replace("</b>", "").replace("<p>", "")\
-        .replace("</p>", "").replace("<code>", "").replace("</code>", "").replace("  ", " ")
+    summary_text = (
+        summary_text.replace("  ", " ")
+        .replace("\n", "")
+        .replace('\\n', "")
+        .replace('\t', "")
+        .replace('\\t', "")
+        .replace('\\\'', '\'')
+        .replace("<b>", "")
+        .replace("</b>", "")
+        .replace("<p>", "")
+        .replace("</p>", "")
+        .replace("<code>", "")
+        .replace("</code>", "")
+        .replace("  ", " ")
+    )
     assert "ZeroDivisionError: division by zero " in summary_text
     assert "while handling path /6/0" in summary_text
 
@@ -164,6 +198,7 @@ def test_exception_handler_lookup():
     try:
         ModuleNotFoundError
     except:
+
         class ModuleNotFoundError(ImportError):
             pass
 

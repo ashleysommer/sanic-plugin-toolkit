@@ -1,5 +1,12 @@
-Sanic Plugins Framework
-=======================
+Sanic Plugin Toolkit
+====================
+
+0.99.1
+------
+- Project Renamed to Sanic Plugin Toolkit
+  - Module is renamed from spf to sanic_plugin_toolkit (fixes #16)
+- Changed to PEP517/518 project, with pyproject.toml and Poetry
+  - removed setup.py, setup.cfg, environment.yml, tox.ini
 
 0.9.5
 -----------

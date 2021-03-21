@@ -6,14 +6,6 @@ cache:
   - "$HOME/.cache/pip"
 matrix:
   include:
-  - env: TOX_ENV=py35
-    python: 3.5
-  - env: TOX_ENV=py35-noext
-    python: 3.5
-  - env: TOX_ENV=py36
-    python: 3.6
-  - env: TOX_ENV=py36-noext
-    python: 3.6
   - env: TOX_ENV=py37
     python: 3.7
   - env: TOX_ENV=py37-noext
@@ -22,18 +14,39 @@ matrix:
     python: 3.8
   - env: TOX_ENV=py38-noext
     python: 3.8
-  - env: TOX_ENV=flake8
-    python: 3.6
-  - env: TOX_ENV=check
-    python: 3.6
+  - env: TOX_ENV=py39
+    python: 3.9
+  - env: TOX_ENV=py39-noext
+    python: 3.9
+  - env: TOX_ENV=lint
+    python: 3.7
+    name: "Python 3.7 Linting"
+  - env: TOX_ENV=type-checking
+    python: 3.7
+    name: "Python 3.7 Type Checking"
+  - env: TOX_ENV=type-checking
+    python: 3.8
+    name: "Python 3.8 Type Checking"
+  - env: TOX_ENV=type-checking
+    python: 3.9
+    name: "Python 3.9 Type Checking"
+
 install: pip3 install -U pip && pip3 install -U tox
 script: tox -e $TOX_ENV
+before_deploy:
+    - poetry build
 deploy:
   provider: pypi
   user: ashleysommer
-  on:
-    tags: true
-    repo: ashleysommer/sanicpluginsframework
+  skip_cleanup: true #Need skip cleanup because we build the artifacts in before_deploy
   password:
     secure: oU3ofnRYBTpEa0I5sdIpj7VahzGWo6axRsi8/BCA/HfFSg83b3LnDubIAurKpE0qRI3GH6tYz/+Q5NgDsQ+sIWURQ/rb+WU1tHYYWM9JRMQuPRtxuQur71ocNDup2oCPvfPZz5WIMdeNlS/R+pwMtEohqrNKlFsZY6d4pzIDyn+5W4N7cEs74ewQ+7u7jahgIgT4kpXDd/Is2j8MAMQjsj+YrDj8Gf7+6TUEMNqguGnp2MZpDYKTdsfVnXjYErDwKEuKb/WmbfsRJCGtEuW6UtUc2btCjfYygF5lnkcBVbCta0x1ldkc+7ZALalXvTbmK5WGn6KCJce+aFCZVAfA8z8wsMTMgCbwANBaRunW4lYLVfe5h/ww/Fs3fHv+Fwy6z/fQ/l3E9vrBvT2gPvqGtpgLwm50yqKGgNt66tdXM3boT9zvR0HMRFZ+BAXQsxfrbRuyAuQT9xQVBuegHYMjtjO+7R1ROztAemmasrLmgkQaEwK/FAf94ptAM7Lv0b68RStqjneYgBSPqV5uvpBLxh12okEjD5etyCNOs+6x7LGdfNR37bY8fZWUiCOPcbsIKCGvXqiQdLYDMrih7R2NSJ8AOKSJf9QiAxg6uP/AIkHSGptd2zDKTY7MWaLTXv3+/Ne2w3eVR49dkc6Hvr5Sp6YZAaS3x4LStZDza/NLezU=
-  distributions: sdist bdist_wheel
+  on:
+    tags: true
+    python: 3.6
+    repo: ashleysommer/sanicpluginsframework
+    condition: $DEPLOY = true
+    branch: release
+  distributions: "sdist bdist_wheel"
+  skip_existing: true
+

@@ -1,4 +1,4 @@
-from spf.plugin import SanicPlugin
+from sanic_plugin_toolkit.plugin import SanicPlugin
 from sanic.response import text
 from logging import DEBUG
 
