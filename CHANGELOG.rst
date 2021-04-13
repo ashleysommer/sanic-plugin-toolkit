@@ -1,6 +1,18 @@
 Sanic Plugin Toolkit
 ====================
 
+1.0.1
+------
+- Suppress deprecation warnings when injecting SPTK into Sanic App or Sanic Blueprint
+- Utilize the app.ctx (and bp.ctx) Namespace in Sanic 21.3+ instead of using the sanic config dict
+
+1.0.0
+------
+- Fix compatibility with Sanic 21.3
+- Minor fixes
+- Cleanup for v1.0.0 release
+- Release for Sanic 21.3.1+ Only!
+
 0.99.1
 ------
 - Project Renamed to Sanic Plugin Toolkit

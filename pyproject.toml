@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "Sanic Plugin Toolkit"
-version = "1.0.0"
+version = "1.0.1"
 # Don't forget to change the version number in __init__.py along with this one
 description = "The all-in-one toolkit for creating powerful Sanic Plugins"
 license = "MIT"

@@ -39,6 +39,7 @@ CONSTS["SPTK_LOAD_INI_KEY"] = SPTK_LOAD_INI_KEY = "SPTK_LOAD_INI"
 CONSTS["SPTK_INI_FILE_KEY"] = SPTK_INI_FILE_KEY = "SPTK_INI_FILE"
 CONSTS["SANIC_19_12_0"] = SANIC_19_12_0 = LooseVersion("19.12.0")
 CONSTS["SANIC_20_12_1"] = SANIC_20_12_1 = LooseVersion("20.12.1")
+CONSTS["SANIC_21_3_0"] = SANIC_21_3_0 = LooseVersion("21.3.0")
 
 # Currently installed sanic version in this environment
 SANIC_VERSION = LooseVersion(sanic_version)
@@ -823,19 +824,24 @@ class SanicPluginRealm(object):
     def _patch_app(self, app):
         # monkey patch the app!
 
-        if SANIC_20_12_1 < SANIC_VERSION:
+        if SANIC_21_3_0 <= SANIC_VERSION:
+            _slots = list(Sanic.__fake_slots__)
+            _slots.extend(["handle_request", "_run_request_middleware", "_run_response_middleware"])
+            Sanic.__fake_slots__ = tuple(_slots)
             app.handle_request = self.wrap_handle_request(app, self._handle_request_21_03)
             app._run_request_middleware = self._run_request_middleware_21_03
             app._run_response_middleware = self._run_response_middleware_21_03
-        elif SANIC_19_12_0 <= SANIC_VERSION:
-            app.handle_request = self.wrap_handle_request(app)
-            app._run_request_middleware = self._run_request_middleware_19_12
-            app._run_response_middleware = self._run_response_middleware_19_12
+            setattr(app.ctx, APP_CONFIG_INSTANCE_KEY, self)
         else:
-            app.handle_request = self.wrap_handle_request(app)
-            app._run_request_middleware = self._run_request_middleware_18_12
-            app._run_response_middleware = self._run_response_middleware_18_12
-        app.config[APP_CONFIG_INSTANCE_KEY] = self
+            if SANIC_19_12_0 <= SANIC_VERSION:
+                app.handle_request = self.wrap_handle_request(app)
+                app._run_request_middleware = self._run_request_middleware_19_12
+                app._run_response_middleware = self._run_response_middleware_19_12
+            else:
+                app.handle_request = self.wrap_handle_request(app)
+                app._run_request_middleware = self._run_request_middleware_18_12
+                app._run_response_middleware = self._run_response_middleware_18_12
+            app.config[APP_CONFIG_INSTANCE_KEY] = self
 
     def _patch_blueprint(self, bp):
         # monkey patch the blueprint!
@@ -916,8 +922,15 @@ class SanicPluginRealm(object):
 
             orig_register(app, options)
 
-        bp.register = update_wrapper(partial(bp_register, bp, bp.register), bp.register)
-        setattr(bp, APP_CONFIG_INSTANCE_KEY, self)
+        if SANIC_21_3_0 <= SANIC_VERSION:
+            _slots = list(Blueprint.__fake_slots__)
+            _slots.extend(["register"])
+            Sanic.__fake_slots__ = tuple(_slots)
+            bp.register = update_wrapper(partial(bp_register, bp, bp.register), bp.register)
+            setattr(bp.ctx, APP_CONFIG_INSTANCE_KEY, self)
+        else:
+            bp.register = update_wrapper(partial(bp_register, bp, bp.register), bp.register)
+            setattr(bp, APP_CONFIG_INSTANCE_KEY, self)
 
     @classmethod
     def _recreate(cls, app):
@@ -946,22 +959,30 @@ class SanicPluginRealm(object):
         # An app _must_ only have one sanic_plugin_toolkit instance associated with it.
         # If there is already one registered on the app, return that one.
         try:
-            instance = app.config[APP_CONFIG_INSTANCE_KEY]
+            instance = getattr(app.ctx, APP_CONFIG_INSTANCE_KEY)
             assert isinstance(
                 instance, cls
             ), "This app is already registered to a different type of Sanic Plugin Realm!"
             return instance
-        except AttributeError:  # app must then be a blueprint
+        except (AttributeError, LookupError):
+            # App doesn't have .ctx or key is not present
             try:
-                instance = getattr(app, APP_CONFIG_INSTANCE_KEY)
+                instance = app.config[APP_CONFIG_INSTANCE_KEY]
                 assert isinstance(
                     instance, cls
-                ), "This Blueprint is already registered to a different type of Sanic Plugin Realm!"
+                ), "This app is already registered to a different type of Sanic Plugin Realm!"
                 return instance
-            except AttributeError:
+            except AttributeError:  # app must then be a blueprint
+                try:
+                    instance = getattr(app, APP_CONFIG_INSTANCE_KEY)
+                    assert isinstance(
+                        instance, cls
+                    ), "This Blueprint is already registered to a different type of Sanic Plugin Realm!"
+                    return instance
+                except AttributeError:
+                    pass
+            except LookupError:
                 pass
-        except KeyError:
-            pass
         self = cls._recreate(app)
         if isinstance(app, Blueprint):
             bp = app
