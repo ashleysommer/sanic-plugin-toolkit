@@ -5,6 +5,13 @@ Sanic Plugins Framework
 
 Welcome to the Sanic Plugins Framework.
 
+**NOTICE**
+This package is maintained for compatibility with Sanic LTS releases 20.12, 19.12, and 18.12.
+
+If you need compatibility with Sanic v21.3 or Above, please use Sanic-Plugin-Toolkit instead.
+
+----
+
 The Sanic Plugins Framework (SPF) is a lightweight python library aimed at making it as simple as possible to build
 plugins for the Sanic Async HTTP Server.
 
@@ -17,8 +24,6 @@ and any Application developer can import your plugin and register it into their 
 
 The Sanic Plugins Framework is more than just a Blueprints-like system for Plugins. It provides an enhanced middleware
 system, and manages Context objects.
-
-**Notice:** Please update to SPF v0.9.0 if you need compatibility with Sanic v19.12+. See `here <https://github.com/huge-success/sanic/issues/1749#issuecomment-571881532>`_ for more details.
 
 
 The Enhanced Middleware System
