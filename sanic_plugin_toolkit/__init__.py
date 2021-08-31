@@ -4,5 +4,5 @@ from .plugin import SanicPlugin
 from .realm import SanicPluginRealm
 
 
-__version__ = '1.0.1'
+__version__ = '1.1.0.post1'
 __all__ = ["SanicPlugin", "SanicPluginRealm", "__version__"]

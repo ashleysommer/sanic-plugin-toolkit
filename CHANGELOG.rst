@@ -1,6 +1,13 @@
 Sanic Plugin Toolkit
 ====================
 
+1.1.0
+------
+- Fix bugs when using SPTK on Sanic v21.6+
+- Fixed project name in pyproject.toml
+- Updated to latest poetry, poetry-core, and black
+- Fixed some bad typos in the Makefile
+
 1.0.1
 ------
 - Suppress deprecation warnings when injecting SPTK into Sanic App or Sanic Blueprint

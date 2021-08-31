@@ -1,10 +1,10 @@
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=1.0.4"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "Sanic Plugin Toolkit"
-version = "1.0.1"
+name = "sanic-plugin-toolkit"
+version = "1.1.0.post1"
 # Don't forget to change the version number in __init__.py along with this one
 description = "The all-in-one toolkit for creating powerful Sanic Plugins"
 license = "MIT"
@@ -66,7 +66,7 @@ pytest-asyncio = "*"
 flake8 = "^3.7"
 sanic-testing = ">=0.3.0"
 isort = {version="^5.7.0", python=">=3.6"}
-black = {version=">=20.8b1,<21", python=">=3.6"}
+black = {version="21.8b0", python=">=3.6"}
 mypy = {version="^0.800.0", python=">=3.6"}
 
 [tool.dephell.main]
@@ -76,7 +76,8 @@ to = {format = "setuppy", path = "setup.py"}
 [tool.black]
 line-length = "119"
 skip-string-normalization = true
-target-version = ['py36']
+required-version = "21.8b0"
+target-version = ['py37']
 include = '\.pyi?$'
 exclude = '''
 (

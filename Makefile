@@ -35,7 +35,7 @@ test: venvcheck		## Run the tests in dev environment
 format: venvcheck	## Run Black and isort Formatters
 ifeq ("$(FilePath)", "")
 	poetry run black --config=./pyproject.toml --verbose sanic_plugin_toolkit
-	poetry run isort sanic_plugin_toolkil
+	poetry run isort sanic_plugin_toolkit
 else
 	poetry run black --config=./pyproject.toml --verbose "$(FilePath)"
 	poetry run isort "$(FilePath)"
@@ -44,9 +44,9 @@ endif
 .PHONY: lint
 lint: venvcheck	## Validate with Black and isort in check-only mode
 ifeq ("$(FilePath)", "")
-	poetry run flake8 psanic_plugin_toolki
-	poetry run black --config=./pyproject.toml --check --verbose sanic_plugin_toolki
-	poetry run isort --check-only sanic_plugin_toolki
+	poetry run flake8 sanic_plugin_toolkit
+	poetry run black --config=./pyproject.toml --check --verbose sanic_plugin_toolkit
+	poetry run isort --check-only sanic_plugin_toolkit
 else
 	poetry run flake8 "$(FilePath)"
 	poetry run black --config=./pyproject.toml --check --verbose "$(FilePath)"

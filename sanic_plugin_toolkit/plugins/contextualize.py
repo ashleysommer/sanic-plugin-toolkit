@@ -2,7 +2,7 @@
 from collections import namedtuple
 
 from sanic_plugin_toolkit import SanicPlugin
-from sanic_plugin_toolkit.plugin import FutureMiddleware, FutureRoute
+from sanic_plugin_toolkit.plugin import SANIC_21_6_0, SANIC_VERSION, FutureMiddleware, FutureRoute
 
 
 ContextualizeAssociatedTuple = namedtuple('ContextualizeAssociatedTuple', ['plugin', 'reg'])
@@ -63,6 +63,8 @@ class ContextualizeAssociated(ContextualizeAssociatedTuple):
         kwargs.setdefault('subprotocols', None)
         kwargs.setdefault('unquote', False)
         kwargs.setdefault('static', False)
+        if SANIC_21_6_0 <= SANIC_VERSION:
+            kwargs.setdefault('version_prefix', '/v')
         kwargs['with_context'] = True  # This is the whole point of this plugin
         plugin = self.plugin
         reg = self.reg

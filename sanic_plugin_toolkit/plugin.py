@@ -2,12 +2,17 @@
 import importlib
 
 from collections import defaultdict, deque, namedtuple
+from distutils.version import LooseVersion
 from functools import update_wrapper
 from inspect import isawaitable
 from typing import Type
 
 from sanic import Blueprint, Sanic
+from sanic import __version__ as sanic_version
 
+
+SANIC_VERSION = LooseVersion(sanic_version)
+SANIC_21_6_0 = LooseVersion("21.6.0")
 
 CRITICAL = 50
 ERROR = 40
@@ -131,6 +136,8 @@ class SanicPlugin(object):
         kwargs.setdefault('subprotocols', None)
         kwargs.setdefault('unquote', False)
         kwargs.setdefault('static', False)
+        if SANIC_21_6_0 <= SANIC_VERSION:
+            kwargs.setdefault('version_prefix', '/v')
 
         def wrapper(handler_f):
             self._routes.append(FutureRoute(handler_f, uri, args, kwargs))
