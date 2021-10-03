@@ -2,7 +2,7 @@
 from collections import namedtuple
 
 from sanic_plugin_toolkit import SanicPlugin
-from sanic_plugin_toolkit.plugin import SANIC_21_6_0, SANIC_VERSION, FutureMiddleware, FutureRoute
+from sanic_plugin_toolkit.plugin import SANIC_21_6_0, SANIC_21_9_0, SANIC_VERSION, FutureMiddleware, FutureRoute
 
 
 ContextualizeAssociatedTuple = namedtuple('ContextualizeAssociatedTuple', ['plugin', 'reg'])
@@ -65,6 +65,8 @@ class ContextualizeAssociated(ContextualizeAssociatedTuple):
         kwargs.setdefault('static', False)
         if SANIC_21_6_0 <= SANIC_VERSION:
             kwargs.setdefault('version_prefix', '/v')
+        if SANIC_21_9_0 <= SANIC_VERSION:
+            kwargs.setdefault('error_format', None)
         kwargs['with_context'] = True  # This is the whole point of this plugin
         plugin = self.plugin
         reg = self.reg

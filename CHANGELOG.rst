@@ -1,6 +1,12 @@
 Sanic Plugin Toolkit
 ====================
 
+1.2.0
+------
+- Fix compatibility with Sanic v21.9
+- Monkey-patch _startup() to inject SPTK into the app _after_ Touchup is run
+- Fix tests on sanic v21.9
+
 1.1.0
 ------
 - Fix bugs when using SPTK on Sanic v21.6+

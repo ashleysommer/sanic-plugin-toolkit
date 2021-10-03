@@ -821,13 +821,15 @@ class SanicPluginRealm(object):
             # Run startup now!
             self._on_server_start(app, loop)
 
+    async def _startup(self, app, real_startup):
+        _ = await real_startup()
+        # Patch app _after_ Touchup is done.
+        self._patch_app(app)
+
     def _patch_app(self, app):
         # monkey patch the app!
 
         if SANIC_21_3_0 <= SANIC_VERSION:
-            _slots = list(Sanic.__fake_slots__)
-            _slots.extend(["handle_request", "_run_request_middleware", "_run_response_middleware"])
-            Sanic.__fake_slots__ = tuple(_slots)
             app.handle_request = self.wrap_handle_request(app, self._handle_request_21_03)
             app._run_request_middleware = self._run_request_middleware_21_03
             app._run_response_middleware = self._run_response_middleware_21_03
@@ -990,7 +992,15 @@ class SanicPluginRealm(object):
             bp.listener('before_server_start')(self._on_server_start)
             bp.listener('after_server_start')(self._on_after_server_start)
         else:
-            self._patch_app(app)
+            if hasattr(Sanic, "__fake_slots__"):
+                _slots = list(Sanic.__fake_slots__)
+                _slots.extend(["_startup", "handle_request", "_run_request_middleware", "_run_response_middleware"])
+                Sanic.__fake_slots__ = tuple(_slots)
+            if hasattr(app, "_startup"):
+                # We can wrap startup, to patch _after_ Touchup is done
+                app._startup = update_wrapper(partial(self._startup, app, app._startup), app._startup)
+            else:
+                self._patch_app(app)
             app.listener('before_server_start')(self._on_server_start)
             app.listener('after_server_start')(self._on_after_server_start)
         config = getattr(app, 'config', None)

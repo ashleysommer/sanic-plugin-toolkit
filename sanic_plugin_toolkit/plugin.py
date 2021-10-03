@@ -13,6 +13,7 @@ from sanic import __version__ as sanic_version
 
 SANIC_VERSION = LooseVersion(sanic_version)
 SANIC_21_6_0 = LooseVersion("21.6.0")
+SANIC_21_9_0 = LooseVersion("21.9.0")
 
 CRITICAL = 50
 ERROR = 40
@@ -138,6 +139,8 @@ class SanicPlugin(object):
         kwargs.setdefault('static', False)
         if SANIC_21_6_0 <= SANIC_VERSION:
             kwargs.setdefault('version_prefix', '/v')
+        if SANIC_21_9_0 <= SANIC_VERSION:
+            kwargs.setdefault('error_format', None)
 
         def wrapper(handler_f):
             self._routes.append(FutureRoute(handler_f, uri, args, kwargs))

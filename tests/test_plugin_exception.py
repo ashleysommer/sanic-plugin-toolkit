@@ -202,7 +202,10 @@ def test_exception_handler_lookup():
         class ModuleNotFoundError(ImportError):
             pass
 
-    handler = ErrorHandler()
+    try:
+        handler = ErrorHandler()
+    except TypeError:
+        handler = ErrorHandler("auto")
     handler.add(ImportError, import_error_handler)
     handler.add(CustomError, custom_error_handler)
     handler.add(ServerError, server_error_handler)
