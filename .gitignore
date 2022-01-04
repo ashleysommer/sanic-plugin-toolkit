@@ -1,6 +1,5 @@
 .idea/
 venv/
-venv36/
 *.pyc
 __pycache__
 test1.py
@@ -9,3 +8,5 @@ test1.py
 .tox/
 *.egg-info/
 .venv/
+dist/
+coverage/

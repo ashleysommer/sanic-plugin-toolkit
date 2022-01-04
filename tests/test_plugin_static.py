@@ -1,12 +1,16 @@
 import inspect
 import os
+
 from time import gmtime, strftime
+
 import pytest
+
 from sanic_plugin_toolkit import SanicPlugin
 
 
 class TestPlugin(SanicPlugin):
     pass
+
 
 # The following tests are taken directly from Sanic source @ v0.8.2
 # and modified to test the SanicPlugin, rather than Sanic
@@ -14,6 +18,7 @@ class TestPlugin(SanicPlugin):
 # ------------------------------------------------------------ #
 #  GET
 # ------------------------------------------------------------ #
+
 
 @pytest.fixture(scope="module")
 def static_file_directory():
@@ -49,11 +54,13 @@ def large_file(static_file_directory):
 
 @pytest.fixture(autouse=True, scope="module")
 def symlink(static_file_directory):
-    src = os.path.abspath(
-        os.path.join(os.path.dirname(static_file_directory), "conftest.py")
-    )
+    src = os.path.abspath(os.path.join(os.path.dirname(static_file_directory), "conftest.py"))
     symlink = "symlink"
     dist = os.path.join(static_file_directory, symlink)
+    try:
+        os.remove(dist)
+    except FileNotFoundError:
+        pass
     os.symlink(src, dist)
     yield symlink
     os.remove(dist)
@@ -61,11 +68,13 @@ def symlink(static_file_directory):
 
 @pytest.fixture(autouse=True, scope="module")
 def hard_link(static_file_directory):
-    src = os.path.abspath(
-        os.path.join(os.path.dirname(static_file_directory), "conftest.py")
-    )
+    src = os.path.abspath(os.path.join(os.path.dirname(static_file_directory), "conftest.py"))
     hard_link = "hard_link"
     dist = os.path.join(static_file_directory, hard_link)
+    try:
+        os.remove(dist)
+    except FileNotFoundError:
+        pass
     os.link(src, dist)
     yield hard_link
     os.remove(dist)
@@ -78,9 +87,7 @@ def hard_link(static_file_directory):
 def test_static_file(realm, static_file_directory, file_name):
     app = realm._app
     plugin = TestPlugin()
-    plugin.static(
-        "/testing.file", get_file_path(static_file_directory, file_name)
-    )
+    plugin.static("/testing.file", get_file_path(static_file_directory, file_name))
     realm.register_plugin(plugin)
     request, response = app._test_manager.test_client.get("/testing.file")
     assert response.status == 200
@@ -103,18 +110,14 @@ def test_static_file_content_type(realm, static_file_directory, file_name):
     assert response.headers["Content-Type"] == "text/html; charset=utf-8"
 
 
-@pytest.mark.parametrize(
-    "file_name", ["test.file", "decode me.txt", "symlink", "hard_link"]
-)
+@pytest.mark.parametrize("file_name", ["test.file", "decode me.txt", "symlink", "hard_link"])
 @pytest.mark.parametrize("base_uri", ["/static", "", "/dir"])
 def test_static_directory(realm, file_name, base_uri, static_file_directory):
     app = realm._app
     plugin = TestPlugin()
     plugin.static(base_uri, static_file_directory)
     realm.register_plugin(plugin)
-    request, response = app._test_manager.test_client.get(
-        uri="{}/{}".format(base_uri, file_name)
-    )
+    request, response = app._test_manager.test_client.get(uri="{}/{}".format(base_uri, file_name))
     assert response.status == 200
     assert response.body == get_file_content(static_file_directory, file_name)
 
@@ -133,9 +136,7 @@ def test_static_head_request(realm, file_name, static_file_directory):
     assert response.status == 200
     assert "Accept-Ranges" in response.headers
     assert "Content-Length" in response.headers
-    assert int(response.headers["Content-Length"]) == len(
-        get_file_content(static_file_directory, file_name)
-    )
+    assert int(response.headers["Content-Length"]) == len(get_file_content(static_file_directory, file_name))
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
@@ -153,9 +154,7 @@ def test_static_content_range_correct(realm, file_name, static_file_directory):
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
-    static_content = bytes(get_file_content(static_file_directory, file_name))[
-        12:20
-    ]
+    static_content = bytes(get_file_content(static_file_directory, file_name))[12:20]
     assert int(response.headers["Content-Length"]) == len(static_content)
     assert response.body == static_content
 
@@ -175,9 +174,7 @@ def test_static_content_range_front(realm, file_name, static_file_directory):
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
-    static_content = bytes(get_file_content(static_file_directory, file_name))[
-        12:
-    ]
+    static_content = bytes(get_file_content(static_file_directory, file_name))[12:]
     assert int(response.headers["Content-Length"]) == len(static_content)
     assert response.body == static_content
 
@@ -197,18 +194,14 @@ def test_static_content_range_back(realm, file_name, static_file_directory):
     assert response.status == 206
     assert "Content-Length" in response.headers
     assert "Content-Range" in response.headers
-    static_content = bytes(get_file_content(static_file_directory, file_name))[
-        -12:
-    ]
+    static_content = bytes(get_file_content(static_file_directory, file_name))[-12:]
     assert int(response.headers["Content-Length"]) == len(static_content)
     assert response.body == static_content
 
 
 @pytest.mark.parametrize("use_modified_since", [True, False])
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_empty(
-    realm, file_name, static_file_directory, use_modified_since
-):
+def test_static_content_range_empty(realm, file_name, static_file_directory, use_modified_since):
     app = realm._app
     plugin = TestPlugin()
     plugin.static(
@@ -222,12 +215,8 @@ def test_static_content_range_empty(
     assert response.status == 200
     assert "Content-Length" in response.headers
     assert "Content-Range" not in response.headers
-    assert int(response.headers["Content-Length"]) == len(
-        get_file_content(static_file_directory, file_name)
-    )
-    assert response.body == bytes(
-        get_file_content(static_file_directory, file_name)
-    )
+    assert int(response.headers["Content-Length"]) == len(get_file_content(static_file_directory, file_name))
+    assert response.body == bytes(get_file_content(static_file_directory, file_name))
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
@@ -251,9 +240,7 @@ def test_static_content_range_error(realm, file_name, static_file_directory):
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_invalid_unit(
-    realm, file_name, static_file_directory
-):
+def test_static_content_range_invalid_unit(realm, file_name, static_file_directory):
     app = realm._app
     plugin = TestPlugin()
     plugin.static(
@@ -271,9 +258,7 @@ def test_static_content_range_invalid_unit(
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_invalid_start(
-    realm, file_name, static_file_directory
-):
+def test_static_content_range_invalid_start(realm, file_name, static_file_directory):
     app = realm._app
     plugin = TestPlugin()
     plugin.static(
@@ -291,9 +276,7 @@ def test_static_content_range_invalid_start(
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_invalid_end(
-    realm, file_name, static_file_directory
-):
+def test_static_content_range_invalid_end(realm, file_name, static_file_directory):
     app = realm._app
     plugin = TestPlugin()
     plugin.static(
@@ -311,9 +294,7 @@ def test_static_content_range_invalid_end(
 
 
 @pytest.mark.parametrize("file_name", ["test.file", "decode me.txt"])
-def test_static_content_range_invalid_parameters(
-    realm, file_name, static_file_directory
-):
+def test_static_content_range_invalid_parameters(realm, file_name, static_file_directory):
     app = realm._app
     plugin = TestPlugin()
     plugin.static(
@@ -329,9 +310,7 @@ def test_static_content_range_invalid_parameters(
     assert "Invalid for Content Range parameters" in response.text
 
 
-@pytest.mark.parametrize(
-    "file_name", ["test.file", "decode me.txt", "python.png"]
-)
+@pytest.mark.parametrize("file_name", ["test.file", "decode me.txt", "python.png"])
 def test_static_file_specified_host(realm, static_file_directory, file_name):
     app = realm._app
     plugin = TestPlugin()
@@ -375,15 +354,11 @@ def test_static_stream_large_file(
     assert response.body == get_file_content(static_file_directory, file_name)
 
 
-@pytest.mark.parametrize(
-    "file_name", ["test.file", "decode me.txt", "python.png"]
-)
+@pytest.mark.parametrize("file_name", ["test.file", "decode me.txt", "python.png"])
 def test_use_modified_since(realm, static_file_directory, file_name):
 
     file_stat = os.stat(get_file_path(static_file_directory, file_name))
-    modified_since = strftime(
-        "%a, %d %b %Y %H:%M:%S GMT", gmtime(file_stat.st_mtime)
-    )
+    modified_since = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime(file_stat.st_mtime))
     app = realm._app
     plugin = TestPlugin()
     plugin.static(

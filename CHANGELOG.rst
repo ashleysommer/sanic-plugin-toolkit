@@ -1,6 +1,12 @@
 Sanic Plugin Toolkit
 ====================
 
+1.2.1
+------
+- Misc bugfixes for Sanic v21.3, and v21.9
+- Fix plugins with static dirs, on sanic v21.9
+- Explicit non-compatibility with Sanic v21.12+
+
 1.2.0
 ------
 - Fix compatibility with Sanic v21.9

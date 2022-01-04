@@ -175,6 +175,8 @@ class SanicPlugin(object):
         kwargs.setdefault('host', None)
         kwargs.setdefault('strict_slashes', None)
         kwargs.setdefault('content_type', None)
+        if SANIC_21_9_0 <= SANIC_VERSION:
+            kwargs.setdefault('resource_type', None)
 
         self._static.append(FutureStatic(uri, file_or_directory, args, kwargs))
 

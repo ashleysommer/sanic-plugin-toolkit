@@ -40,9 +40,13 @@ CONSTS["SPTK_INI_FILE_KEY"] = SPTK_INI_FILE_KEY = "SPTK_INI_FILE"
 CONSTS["SANIC_19_12_0"] = SANIC_19_12_0 = LooseVersion("19.12.0")
 CONSTS["SANIC_20_12_1"] = SANIC_20_12_1 = LooseVersion("20.12.1")
 CONSTS["SANIC_21_3_0"] = SANIC_21_3_0 = LooseVersion("21.3.0")
+CONSTS["SANIC_21_12_0"] = SANIC_21_12_0 = LooseVersion("21.12.0")
 
 # Currently installed sanic version in this environment
 SANIC_VERSION = LooseVersion(sanic_version)
+
+if SANIC_21_12_0 <= SANIC_VERSION:
+    raise RuntimeError("Sanic-Plugin-Toolkit v1.2 does not work with Sanic v21.12.0")
 
 CRITICAL = 50
 ERROR = 40
@@ -833,7 +837,6 @@ class SanicPluginRealm(object):
             app.handle_request = self.wrap_handle_request(app, self._handle_request_21_03)
             app._run_request_middleware = self._run_request_middleware_21_03
             app._run_response_middleware = self._run_response_middleware_21_03
-            setattr(app.ctx, APP_CONFIG_INSTANCE_KEY, self)
         else:
             if SANIC_19_12_0 <= SANIC_VERSION:
                 app.handle_request = self.wrap_handle_request(app)
@@ -843,7 +846,6 @@ class SanicPluginRealm(object):
                 app.handle_request = self.wrap_handle_request(app)
                 app._run_request_middleware = self._run_request_middleware_18_12
                 app._run_response_middleware = self._run_response_middleware_18_12
-            app.config[APP_CONFIG_INSTANCE_KEY] = self
 
     def _patch_blueprint(self, bp):
         # monkey patch the blueprint!
@@ -927,7 +929,7 @@ class SanicPluginRealm(object):
         if SANIC_21_3_0 <= SANIC_VERSION:
             _slots = list(Blueprint.__fake_slots__)
             _slots.extend(["register"])
-            Sanic.__fake_slots__ = tuple(_slots)
+            Blueprint.__fake_slots__ = tuple(_slots)
             bp.register = update_wrapper(partial(bp_register, bp, bp.register), bp.register)
             setattr(bp.ctx, APP_CONFIG_INSTANCE_KEY, self)
         else:
@@ -953,11 +955,12 @@ class SanicPluginRealm(object):
         return self
 
     def __new__(cls, app, *args, **kwargs):
-        assert app, "Plugin Realm must be given a valid Sanic App to work with."
-        assert isinstance(app, Sanic) or isinstance(app, Blueprint), (
-            "PluginRealm only works with Sanic Apps or Blueprints. "
-            "Please pass in an app instance to the Realm constructor."
-        )
+        if not app:
+            raise RuntimeError("Plugin Realm must be given a valid Sanic App to work with.")
+        if not (isinstance(app, Sanic) or isinstance(app, Blueprint)):
+            raise RuntimeError(
+                "PluginRealm only works with Sanic Apps or Blueprints. Please pass in an app instance to the Realm constructor."
+            )
         # An app _must_ only have one sanic_plugin_toolkit instance associated with it.
         # If there is already one registered on the app, return that one.
         try:
@@ -1001,6 +1004,10 @@ class SanicPluginRealm(object):
                 app._startup = update_wrapper(partial(self._startup, app, app._startup), app._startup)
             else:
                 self._patch_app(app)
+            if SANIC_21_3_0 <= SANIC_VERSION:
+                setattr(app.ctx, APP_CONFIG_INSTANCE_KEY, self)
+            else:
+                app.config[APP_CONFIG_INSTANCE_KEY] = self
             app.listener('before_server_start')(self._on_server_start)
             app.listener('after_server_start')(self._on_after_server_start)
         config = getattr(app, 'config', None)

@@ -1,5 +1,4 @@
 include pyproject.toml
-include poetry.lock
 include LICENSE.txt
 include CHANGELOG.rst
 include README.rst

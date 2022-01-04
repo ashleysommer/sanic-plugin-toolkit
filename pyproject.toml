@@ -1,10 +1,10 @@
 [build-system]
-requires = ["poetry-core>=1.0.4"]
+requires = ["poetry-core>=1.0.7"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "sanic-plugin-toolkit"
-version = "1.2.0"
+version = "1.2.1"
 # Don't forget to change the version number in __init__.py along with this one
 description = "The all-in-one toolkit for creating powerful Sanic Plugins"
 license = "MIT"
@@ -25,6 +25,7 @@ classifiers = [
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
     'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
@@ -42,9 +43,9 @@ include = [
     { path = "poetry.lock", format = "sdist" },
     { path = "Makefile", format = "sdist" },
     { path = "MANIFEST.in", format = "sdist" },
-	"*.md",
-	"*.txt",
-    "*.rst",
+    { path = "*.md" },
+    { path = "*.txt" },
+    { path = "*.rst" },
 ]
 
 [tool.poetry.plugins."sanic_plugins"]
@@ -54,8 +55,7 @@ Contextualize = "sanic_plugin_toolkit.plugins.contextualize:instance"
 [tool.poetry.dependencies]
 python = "^3.7"  # Compatible python versions must be declared here
 setuptools = ">=40.8"
-sanic = {version=">=21.3.1,<22,!21.3.0,!21.6.0,!21.9.0" }
-#sanic = { git = "https://github.com/sanic-org/sanic.git", branch = "master" } #version "21.3.0a1"
+sanic = { version = ">= 21.3.1, < 21.12.0" }
 
 [tool.poetry.dev-dependencies]
 attrs = "<19.2.0"
@@ -126,7 +126,7 @@ envlist = py37, py38, py39, {py37,py38,py39}-noext, lint, type-checking
 [testenv]
 deps =
     poetry>=1.1.0
-    py36: coveralls
+    py37: coveralls
 passenv = TRAVIS TRAVIS_JOB_ID TRAVIS_BRANCH
 setenv =
     {py37,py38,py39}-noext: SANIC_NO_UJSON=1
@@ -139,7 +139,7 @@ commands =
     - poetry run coverage combine --append
     poetry run coverage report -m
     poetry run coverage html -i
-    py36: - coveralls
+    py37: - coveralls
 
 [testenv:lint]
 commands =
